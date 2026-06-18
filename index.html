@@ -190,6 +190,17 @@ button{cursor:pointer;}
 .wn-bd-tier{display:flex;flex-direction:column;align-items:center;font-size:26px;opacity:.3;}
 .wn-bd-tier.on{opacity:1;}
 .wn-bd-tier small{font-size:11px;color:var(--muted);font-family:'Oswald';margin-top:2px;}
+.wn-fs{position:fixed;inset:0;z-index:60;background:var(--bg);display:flex;flex-direction:column;
+  padding:max(14px,env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom));overflow-y:auto;}
+.wn-fs-head{display:flex;align-items:center;justify-content:space-between;flex:0 0 auto;}
+.wn-fs-title{font-size:20px;font-weight:900;}
+.wn-fs-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
+.wn-fs .wn-bd-ci{width:180px;height:180px;margin:0 auto 24px;}
+.wn-fs .wn-bd-em{font-size:100px;}
+.wn-fs-num{font-family:'Oswald';font-size:46px;font-weight:700;line-height:1;}
+.wn-fs-unit{font-size:14px;color:var(--muted);margin-top:8px;}
+.wn-fs-bar{height:10px;width:78%;max-width:300px;margin:26px auto 0;}
+.wn-fs .wn-bd-tiers{margin-top:34px;}
 .wn-stamp-badge{border-color:var(--gold);color:var(--gold);}
 .wn-stamp-badge::after{border-color:var(--gold);}
 .wn-stamp-badge svg{width:46px;height:46px;}
@@ -1221,7 +1232,7 @@ function buildBadge(){
    if(rendered[b.group])return; rendered[b.group]=1;
    var gc=groupCur[b.group],ok=!!gc.cur,rar=ok?gc.cur.rarity:gc.sorted[0].rarity,pct;
    if(!ok)pct=Math.max(0,Math.min(100,gc.val/gc.sorted[0].need*100));
-   else if(gc.next)pct=Math.max(0,Math.min(100,(gc.val-gc.cur.need)/(gc.next.need-gc.cur.need)*100));
+   else if(gc.next)pct=Math.max(0,Math.min(100,gc.val/gc.next.need*100));
    else pct=100;
    var ic=ok?('<div class="wn-bt-ci"><img src="cont-'+gc.cur.need+'.png" alt="" onerror="this.parentNode.classList.add(\'noimg\');this.remove();"><span class="wn-bt-em">'+rarE(rar)+'</span></div>'):('<div class="wn-bt-ci noimg"><span class="wn-bt-em">'+rarE(rar)+'</span></div>');
    html+='<button class="wn-btile'+(ok?'':' locked')+'" data-action="badge-detail" data-group="'+esc(b.group)+'">'+ic+'<div class="wn-pbar'+(!gc.next&&ok?' done':'')+'"><div style="width:'+pct+'%"></div></div></button>';
@@ -1243,8 +1254,14 @@ function fmtVal(v,u){
  if(u==="exercises")return v+"種目";
  return v+"回";
 }
+function fmtPair(v,need,u){
+ if(u==="t")return (Math.round(v/100)/10)+" / "+(need/1000);
+ return v+" / "+need;
+}
+function unitLabel(u){return {days:"日",kg:"kg",t:"t",reps:"回",sets:"セット",exercises:"種目",pr:"回（PR）"}[u]||"";}
+
 function openBadgeDetail(id,group){
- var ctx=computeCtx(),name,iconHtml,numText,pct,extra="";
+ var ctx=computeCtx(),name,iconHtml,numText,unit="",pct,extra="";
  if(group){
   var gm=BADGES.filter(function(b){return b.group===group;}).slice().sort(function(a,b){return a.need-b.need;});
   var val=gm[0].val(ctx),cur=null,next=null;
@@ -1252,9 +1269,9 @@ function openBadgeDetail(id,group){
   for(var i=0;i<gm.length;i++){if(val<gm[i].need){next=gm[i];break;}}
   name="継続";
   var rar=cur?cur.rarity:gm[0].rarity;
-  iconHtml=cur?('<div class="wn-bd-ci"><img src="cont-'+cur.need+'.png" onerror="this.parentNode.classList.add(\'noimg\');this.remove();"><span class="wn-bd-em">'+rarE(rar)+'</span></div>'):('<div class="wn-bd-ci noimg"><span class="wn-bd-em">'+rarE(rar)+'</span></div>');
-  if(next){pct=Math.max(0,Math.min(100,(val-(cur?cur.need:0))/(next.need-(cur?cur.need:0))*100));numText=val+"日 / 次 "+next.need+"日";}
-  else{pct=100;numText=val+"日 ・ 最高ランク達成";}
+  iconHtml=cur?('<div class="wn-bd-ci"><img src="cont-'+cur.need+'.png" onerror="this.parentNode.classList.add(\'noimg\');this.remove();"><span class="wn-bd-em">'+rarE(rar)+'</span></div>'):('<div class="wn-bd-ci noimg"><span class="wn-bd-em lock">'+rarE(rar)+'</span></div>');
+  if(next){pct=Math.max(0,Math.min(100,val/next.need*100));numText=val+" / "+next.need;unit="日";}
+  else{pct=100;numText=String(val);unit="日 ・ 最高ランク";}
   extra='<div class="wn-bd-tiers">'+gm.map(function(t){return '<span class="wn-bd-tier '+(val>=t.need?'on':'off')+'">'+rarE(t.rarity)+'<small>'+t.need+'</small></span>';}).join("")+'</div>';
  }else{
   var b=null;for(var j=0;j<BADGES.length;j++){if(BADGES[j].id===id){b=BADGES[j];break;}}
@@ -1262,15 +1279,17 @@ function openBadgeDetail(id,group){
   name=b.name;
   var ok=badgeOk(b,ctx);
   iconHtml='<div class="wn-bd-ci noimg"><span class="wn-bd-em'+(ok?'':' lock')+'">'+rarE(b.rarity)+'</span></div>';
-  if(b.done){pct=ok?100:0;numText=ok?"達成！":"未達成";}
-  else{var v=b.val(ctx);pct=Math.max(0,Math.min(100,v/b.need*100));numText=ok?("達成！（"+fmtVal(v,b.unit)+"）"):(fmtVal(v,b.unit)+" / "+fmtVal(b.need,b.unit));}
+  if(b.done){pct=ok?100:0;numText=ok?"達成！":"未達成";unit="";}
+  else{var v=b.val(ctx);pct=Math.max(0,Math.min(100,v/b.need*100));
+   if(ok){numText="達成！";unit=fmtVal(v,b.unit);}
+   else{numText=fmtPair(v,b.need,b.unit);unit=unitLabel(b.unit);}}
  }
- $ov.innerHTML='<div class="wn-scrim" data-action="close-scrim"><div class="wn-sheet"><div class="wn-sheet-handle"></div>'
-  +'<div class="wn-sheet-head"><span class="wn-sheet-date">'+esc(name)+'</span><button class="wn-x" data-action="close">×</button></div>'
-  +'<div class="wn-sheet-body wn-bd-body">'+iconHtml
-  +'<div class="wn-bd-num">'+esc(numText)+'</div>'
-  +'<div class="wn-pbar wn-bd-bar'+(pct>=100?' done':'')+'"><div style="width:'+pct+'%"></div></div>'
-  +extra+'</div></div></div>';
+ $ov.innerHTML='<div class="wn-fs"><div class="wn-fs-head"><span class="wn-fs-title">'+esc(name)+'</span><button class="wn-x" data-action="close">×</button></div>'
+  +'<div class="wn-fs-body">'+iconHtml
+  +'<div class="wn-fs-num">'+esc(numText)+'</div>'
+  +(unit?'<div class="wn-fs-unit">'+esc(unit)+'</div>':'')
+  +'<div class="wn-pbar wn-fs-bar'+(pct>=100?' done':'')+'"><div style="width:'+pct+'%"></div></div>'
+  +extra+'</div></div>';
 }
 
 function unlockedIds(){var ctx=computeCtx();return BADGES.filter(function(b){return badgeOk(b,ctx);}).map(function(b){return b.id;});}
