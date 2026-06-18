@@ -133,6 +133,37 @@ button{cursor:pointer;}
 .wn-diff-up{color:#4C8DFF;font-weight:700;}
 .wn-diff-none{color:var(--muted);font-weight:400;}
 .wn-diff-date{color:var(--muted);font-weight:400;font-size:11px;}
+
+.wn-bsec{margin-bottom:18px;}
+.wn-bsec-h{font-weight:700;font-size:14px;margin-bottom:10px;}
+.wn-badge-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:8px;}
+.wn-badge{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 8px 11px;text-align:center;}
+.wn-badge-on{border-color:var(--gold);}
+.wn-badge-off{opacity:.5;}
+.wn-badge-ic svg{width:30px;height:30px;}
+.wn-badge-on .wn-badge-ic{color:var(--gold);}
+.wn-badge-off .wn-badge-ic{color:var(--muted);}
+.wn-badge-nm{font-size:12px;font-weight:700;margin:6px 0 3px;}
+.wn-badge-sub{font-size:11px;color:var(--muted);}
+.wn-badge-on .wn-badge-sub{color:var(--gold);font-weight:700;}
+.wn-badge-bar{height:4px;background:var(--surface2);border-radius:2px;margin-top:7px;overflow:hidden;}
+.wn-badge-bar>div{height:100%;background:var(--gold);}
+.wn-badge-em{font-size:30px;line-height:1;}
+.wn-badge-off .wn-badge-em{filter:grayscale(1);opacity:.45;}
+.wn-rar-tally{display:flex;gap:12px;flex-wrap:wrap;margin:-6px 0 16px;font-size:14px;color:var(--muted);font-family:'Oswald';}
+.wn-badge-wide{grid-column:1/-1;display:flex;align-items:center;gap:14px;text-align:left;padding:14px;}
+.wn-badge-em-lg{font-size:40px;line-height:1;flex:0 0 auto;}
+.wn-badge-off .wn-badge-em-lg{filter:grayscale(1);opacity:.45;}
+.wn-badge-winfo{flex:1;min-width:0;}
+.wn-badge-winfo .wn-badge-nm{font-size:15px;margin-top:0;}
+.wn-cic{position:relative;display:flex;align-items:center;justify-content:center;height:46px;margin-bottom:2px;}
+.wn-cic img{height:46px;width:auto;display:block;}
+.wn-cemoji{font-size:30px;line-height:1;display:none;}
+.wn-cic.noimg .wn-cemoji{display:inline;}
+.wn-stamp-badge{border-color:var(--gold);color:var(--gold);}
+.wn-stamp-badge::after{border-color:var(--gold);}
+.wn-stamp-badge svg{width:46px;height:46px;}
+.wn-badge-utitle{font-weight:900;font-size:20px;color:var(--gold);margin-bottom:10px;}
 #toast{position:fixed;left:50%;transform:translateX(-50%) translateY(12px);bottom:calc(90px + env(safe-area-inset-bottom));
   background:var(--surface2);border:1px solid var(--gold);color:var(--text);padding:11px 18px;border-radius:12px;
   font-size:14px;font-weight:700;z-index:60;opacity:0;pointer-events:none;max-width:86%;text-align:center;
@@ -422,6 +453,7 @@ function renderMain(){
  var body;
  if(view==="best")body=buildBest();
  else if(view==="analysis")body=buildAnalysis();
+ else if(view==="badge")body=buildBadge();
  else if(view==="settings")body=buildSettings();
  else body=buildHome();
  $app.innerHTML=body+buildTabbar();
@@ -492,11 +524,12 @@ function navIcon(k){
  var p={home:'M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10',
   best:'M7 4h10v3a5 5 0 0 1-10 0zM5 5H3v1a3 3 0 0 0 3 3M19 5h2v1a3 3 0 0 1-3 3M9 14v3h6v-3M8 21h8',
   analysis:'M4 19V5M4 19h16M8 15l3-4 3 2 4-6',
+  badge:'M12 3l2.5 5.2 5.5.8-4 4 1 5.6L12 16l-5 2.6 1-5.6-4-4 5.5-.8z',
   settings:'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1'}[k];
  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="'+p+'"></path></svg>';
 }
 function buildTabbar(){
- var items=[["home","ホーム"],["best","ベスト"],["analysis","分析"],["settings","設定"]];
+ var items=[["home","ホーム"],["best","ベスト"],["analysis","分析"],["badge","実績"],["settings","設定"]];
  return '<nav class="wn-tabbar">'+items.map(function(it){
   return '<button class="wn-tabitem '+(view===it[0]?"on":"")+'" data-action="nav" data-view="'+it[0]+'">'+navIcon(it[0])+'<span>'+it[1]+'</span></button>';
  }).join("")+'</nav>';
@@ -518,6 +551,7 @@ $app.addEventListener("click",function(e){
  else if(a==="export-file"){exportFile();}
  else if(a==="copy-json"){copyJson();}
  else if(a==="import-paste"){importPaste();}
+ else if(a==="save-birthday"){var bi=document.getElementById("bdayInput");if(bi){var mm=bi.value?bi.value.slice(5):"";saveBirthday(mm||null);toast(mm?("誕生日 "+mm+" を登録しました"):"誕生日を削除しました");renderMain();}}
 });
 $app.addEventListener("change",function(e){if(e.target&&e.target.id==="importFile"){importFromFile(e.target.files[0]);}});
 
@@ -742,23 +776,27 @@ function handleSave(){
   var o0=records[date]||{}; delete o0.exercises;
   if(o0.weight===undefined||o0.weight==="")delete records[date]; else records[date]=o0;
  }else{
-  var o1=records[date]||{}; o1.exercises=cleaned; records[date]=o1;
+  var o1=records[date]||{}; o1.exercises=cleaned; o1.savedAt=new Date().toISOString(); records[date]=o1;
  }
  save();
+ var newly=checkNewBadges();
  var isToday=date===todayStr()&&cleaned.length>0;
  var newTotal=trainedDays().length;
  closeOverlay();
  renderMain();
  if(isToday){
   var msg=MILESTONES[newTotal]||MESSAGES[Math.floor(Math.random()*MESSAGES.length)];
+  pendingBadges=newly.length?newly:null;
   showBonus(newTotal,msg);
+ }else if(newly.length){
+  showBadgeUnlock(newly);
  }
 }
 
 function closeOverlay(){restStop();$ov.innerHTML="";sheet=null;}
 
 /* ===== データのバックアップ / 復元 ===== */
-function buildBackup(){return {app:"kintore-note",version:1,exportedAt:new Date().toISOString(),records:records};}
+function buildBackup(){return {app:"kintore-note",version:1,exportedAt:new Date().toISOString(),records:records,birthday:birthday};}
 function buildBackupString(){return JSON.stringify(buildBackup());}
 
 function buildSettings(){
@@ -766,6 +804,11 @@ function buildSettings(){
  var total=trainedDays().length;
  return '<div class="wn-view-title">設定</div>'
   +'<p class="wn-data-note">記録はこの端末のブラウザ内だけに保存されています（現在 '+total+' 日分）。機種変更やデータ消去で消えないよう、ときどき書き出して保管してください。</p>'
+  +'<div class="wn-data-sec"><div class="wn-data-h">プロフィール</div>'
+  +'<p class="wn-data-note">誕生日を登録すると「誕生日トレーニー」の実績が解除できます。</p>'
+  +'<div class="wn-weight-row"><span class="wn-weight-label">誕生日</span><input type="date" class="wn-weight-input" id="bdayInput" value="'+(birthday?("2000-"+birthday):"")+'"><button class="wn-weight-save" data-action="save-birthday">保存</button></div>'
+  +(birthday?'<div class="wn-weight-ok">✓ 登録済み（'+esc(birthday)+'）</div>':'')
+  +'</div>'
   +'<div class="wn-data-sec"><div class="wn-data-h">書き出し（バックアップ）</div>'
   +'<div class="wn-data-row"><button class="wn-data-act" data-action="export-file">ファイルに保存</button><button class="wn-data-act2" data-action="copy-json">コピー</button></div>'
   +'<textarea class="wn-data-ta" id="exportTa" readonly>'+esc(json)+'</textarea>'
@@ -816,6 +859,7 @@ function applyImport(text,hintId){
  if(keys.length===0){if(h)h.textContent="有効な記録が含まれていません。";return;}
  if(!confirm("バックアップから "+keys.length+" 日分を取り込みます。同じ日付は上書きされます。よろしいですか？"))return;
  keys.forEach(function(k){records[k]=rec[k];});
+ if(obj&&typeof obj.birthday==="string"&&/^\d{2}-\d{2}$/.test(obj.birthday))saveBirthday(obj.birthday);
  save();
  if(h)h.textContent=keys.length+" 日分を取り込みました。画面に反映されています。";
  renderMain();
@@ -938,6 +982,264 @@ function buildAnalysis(){
   +svgLine(vSeries,"kg")+'</div>';
 }
 
+/* ===== 実績バッジ ===== */
+var birthday=null;
+function loadBirthday(){try{birthday=localStorage.getItem("workout-birthday")||null;}catch(e){birthday=null;}}
+function saveBirthday(v){birthday=v||null;try{if(v)localStorage.setItem("workout-birthday",v);else localStorage.removeItem("workout-birthday");}catch(e){}}
+
+var RAR={bronze:{c:"#CD7F32",e:"🥉"},silver:{c:"#C0C7D0",e:"🥈"},gold:{c:"#FFC24B",e:"🥇"},diamond:{c:"#5BD1E6",e:"💎"},legend:{c:"#B583FF",e:"🌈"}};
+function rarE(r){return (RAR[r]||RAR.bronze).e;}
+function rarC(r){return (RAR[r]||RAR.bronze).c;}
+
+function longestStreak(sorted){
+ var best=0,cur=0,prev=null;
+ sorted.forEach(function(d){
+  if(prev){var diff=Math.round((parseYmd(d)-parseYmd(prev))/86400000);cur=diff===1?cur+1:1;}else cur=1;
+  if(cur>best)best=cur;prev=d;
+ });
+ return best;
+}
+function maxPRWindow(prByDate,win){
+ var ds=Object.keys(prByDate).sort(),best=0;
+ for(var i=0;i<ds.length;i++){var end=parseYmd(ds[i]),sum=0;
+  for(var j=0;j<=i;j++){var diff=Math.round((end-parseYmd(ds[j]))/86400000);if(diff>=0&&diff<win)sum+=prByDate[ds[j]];}
+  if(sum>best)best=sum;}
+ return best;
+}
+function computeCtx(){
+ var dates=Object.keys(records).sort();
+ var trained=dates.filter(function(d){return records[d].exercises&&records[d].exercises.length>0;});
+ var ctx={days:trained.length,totalSets:0,totalReps:0,totalVol:0,dayMaxReps:0,dayMaxSets:0,dayMaxExercises:0,
+  distinct:{},perPartReps:{},perPartDays:{},weightLogCount:0,morningCount:0,nightCount:0,midnightCount:0,
+  datesMMDD:{},streakMax:0,prCount:0,maxPRday:0,maxPRweek:0,maxW:{},weightUp:0,weightDown:0,legNext:false};
+ var weightDates=dates.filter(function(d){return records[d].weight!==undefined&&records[d].weight!=="";});
+ ctx.weightLogCount=weightDates.length;
+ if(weightDates.length){
+  var firstW=num(records[weightDates[0]].weight),mn=Infinity,mx=-Infinity;
+  weightDates.forEach(function(d){var w=num(records[d].weight);if(w<mn)mn=w;if(w>mx)mx=w;});
+  ctx.weightUp=Math.max(0,Math.round((mx-firstW)*10)/10);
+  ctx.weightDown=Math.max(0,Math.round((firstW-mn)*10)/10);
+ }
+ var prBest={},prByDate={},trainedSorted=trained.slice().sort();
+ trainedSorted.forEach(function(d){
+  var rec=records[d],dayReps=0,daySets=0,exNames={},partsToday={};
+  (rec.exercises||[]).forEach(function(ex){
+   exNames[ex.name]=1;ctx.distinct[ex.name]=1;partsToday[ex.part]=1;var part=ex.part;
+   (ex.entries||[]).forEach(function(en){
+    if(en.drop){(en.steps||[]).forEach(function(s){var w=num(s.weight),r=num(s.reps);
+      if(w>0&&r>0){daySets+=1;dayReps+=r;ctx.totalSets+=1;ctx.totalReps+=r;ctx.totalVol+=w*r;
+       ctx.perPartReps[part]=(ctx.perPartReps[part]||0)+r;if(w>(ctx.maxW[ex.name]||0))ctx.maxW[ex.name]=w;}});}
+    else{var w=num(en.weight),r=num(en.reps),st=num(en.sets);
+     if(w>0&&r>0&&st>0){daySets+=st;dayReps+=r*st;ctx.totalSets+=st;ctx.totalReps+=r*st;ctx.totalVol+=w*r*st;
+      ctx.perPartReps[part]=(ctx.perPartReps[part]||0)+r*st;if(w>(ctx.maxW[ex.name]||0))ctx.maxW[ex.name]=w;}}
+   });
+  });
+  var prToday=0;
+  (rec.exercises||[]).forEach(function(ex){var tmax=0;
+   (ex.entries||[]).forEach(function(en){if(en.drop){(en.steps||[]).forEach(function(s){if(num(s.weight)>tmax)tmax=num(s.weight);});}else if(num(en.weight)>tmax)tmax=num(en.weight);});
+   if(tmax>0&&tmax>(prBest[ex.name]||0)){prBest[ex.name]=tmax;ctx.prCount++;prToday++;}});
+  prByDate[d]=prToday;if(prToday>ctx.maxPRday)ctx.maxPRday=prToday;
+  Object.keys(partsToday).forEach(function(p){ctx.perPartDays[p]=(ctx.perPartDays[p]||0)+1;});
+  if(dayReps>ctx.dayMaxReps)ctx.dayMaxReps=dayReps;
+  if(daySets>ctx.dayMaxSets)ctx.dayMaxSets=daySets;
+  var nex=Object.keys(exNames).length;if(nex>ctx.dayMaxExercises)ctx.dayMaxExercises=nex;
+  ctx.datesMMDD[d.slice(5)]=1;
+  if(rec.savedAt){var hr=new Date(rec.savedAt).getHours();if(hr>=5&&hr<8)ctx.morningCount++;if(hr>=22)ctx.nightCount++;if(hr>=0&&hr<5)ctx.midnightCount++;}
+ });
+ ctx.totalVol=Math.round(ctx.totalVol);
+ ctx.distinctCount=Object.keys(ctx.distinct).length;
+ ctx.streakMax=longestStreak(trainedSorted);
+ ctx.maxPRweek=maxPRWindow(prByDate,7);
+ ctx.legNext=trainedSorted.some(function(d){var rec=records[d];
+  if(!(rec.exercises||[]).some(function(ex){return ex.part==="足";}))return false;
+  var nd=ymd(new Date(parseYmd(d).getTime()+86400000));return records[nd]&&records[nd].exercises&&records[nd].exercises.length>0;});
+ ctx.perPartReps["腕"]=(ctx.perPartReps["二頭"]||0)+(ctx.perPartReps["三頭"]||0);
+ ctx.perPartDays["腕"]=Math.max(ctx.perPartDays["二頭"]||0,ctx.perPartDays["三頭"]||0);
+ return ctx;
+}
+
+function pr(ctx,k){return ctx.perPartReps[k]||0;}
+function pd(ctx,k){return ctx.perPartDays[k]||0;}
+function V(metric,need,unit){return {val:function(c){return c[metric];},need:need,unit:unit};}
+var BADGES=[
+ // 継続(1枚でランクアップ)
+ {cat:"継続",group:"継続",rarity:"silver",name:"初記録",val:function(c){return c.days;},need:1,unit:"days"},
+ {cat:"継続",group:"継続",rarity:"bronze",name:"3日継続",val:function(c){return c.days;},need:3,unit:"days"},
+ {cat:"継続",group:"継続",rarity:"bronze",name:"7日継続",val:function(c){return c.days;},need:7,unit:"days"},
+ {cat:"継続",group:"継続",rarity:"silver",name:"30日継続",val:function(c){return c.days;},need:30,unit:"days"},
+ {cat:"継続",group:"継続",rarity:"silver",name:"60日継続",val:function(c){return c.days;},need:60,unit:"days"},
+ {cat:"継続",group:"継続",rarity:"gold",name:"100日継続",val:function(c){return c.days;},need:100,unit:"days"},
+ {cat:"継続",group:"継続",rarity:"gold",name:"200日継続",val:function(c){return c.days;},need:200,unit:"days"},
+ {cat:"継続",group:"継続",rarity:"legend",name:"365日継続",val:function(c){return c.days;},need:365,unit:"days"},
+ // セット・レップ
+ {cat:"セット・レップ",rarity:"bronze",name:"10セット達成",val:function(c){return c.totalSets;},need:10,unit:"sets"},
+ {cat:"セット・レップ",rarity:"bronze",name:"100セット達成",val:function(c){return c.totalSets;},need:100,unit:"sets"},
+ {cat:"セット・レップ",rarity:"silver",name:"1000セット達成",val:function(c){return c.totalSets;},need:1000,unit:"sets"},
+ {cat:"セット・レップ",rarity:"gold",name:"10000セット達成",val:function(c){return c.totalSets;},need:10000,unit:"sets"},
+ {cat:"セット・レップ",rarity:"bronze",name:"100回記録",val:function(c){return c.totalReps;},need:100,unit:"reps"},
+ {cat:"セット・レップ",rarity:"silver",name:"1000回記録",val:function(c){return c.totalReps;},need:1000,unit:"reps"},
+ {cat:"セット・レップ",rarity:"gold",name:"10000回記録",val:function(c){return c.totalReps;},need:10000,unit:"reps"},
+ // 1日チャレンジ
+ {cat:"1日チャレンジ",rarity:"bronze",name:"1日100レップ",val:function(c){return c.dayMaxReps;},need:100,unit:"reps"},
+ {cat:"1日チャレンジ",rarity:"silver",name:"1日500レップ",val:function(c){return c.dayMaxReps;},need:500,unit:"reps"},
+ {cat:"1日チャレンジ",rarity:"gold",name:"1日1000レップ",val:function(c){return c.dayMaxReps;},need:1000,unit:"reps"},
+ {cat:"1日チャレンジ",rarity:"bronze",name:"1日20セット",val:function(c){return c.dayMaxSets;},need:20,unit:"sets"},
+ {cat:"1日チャレンジ",rarity:"silver",name:"ワンタップ職人(1日50セット)",val:function(c){return c.dayMaxSets;},need:50,unit:"sets"},
+ {cat:"1日チャレンジ",rarity:"silver",name:"1日10種目",val:function(c){return c.dayMaxExercises;},need:10,unit:"exercises"},
+ // 重量(種目別)
+ {cat:"重量",rarity:"bronze",name:"ベンチ 40kg",val:function(c){return c.maxW["ベンチプレス"]||0;},need:40,unit:"kg"},
+ {cat:"重量",rarity:"bronze",name:"ベンチ 60kg",val:function(c){return c.maxW["ベンチプレス"]||0;},need:60,unit:"kg"},
+ {cat:"重量",rarity:"silver",name:"ベンチ 80kg",val:function(c){return c.maxW["ベンチプレス"]||0;},need:80,unit:"kg"},
+ {cat:"重量",rarity:"gold",name:"ベンチ 100kg",val:function(c){return c.maxW["ベンチプレス"]||0;},need:100,unit:"kg"},
+ {cat:"重量",rarity:"diamond",name:"ベンチ 120kg",val:function(c){return c.maxW["ベンチプレス"]||0;},need:120,unit:"kg"},
+ {cat:"重量",rarity:"silver",name:"スクワット 100kg",val:function(c){return c.maxW["スクワット"]||0;},need:100,unit:"kg"},
+ {cat:"重量",rarity:"gold",name:"スクワット 140kg",val:function(c){return c.maxW["スクワット"]||0;},need:140,unit:"kg"},
+ {cat:"重量",rarity:"gold",name:"デッドリフト 150kg",val:function(c){return c.maxW["デッドリフト"]||0;},need:150,unit:"kg"},
+ {cat:"重量",rarity:"diamond",name:"デッドリフト 200kg",val:function(c){return c.maxW["デッドリフト"]||0;},need:200,unit:"kg"},
+ // 総重量
+ {cat:"総重量",rarity:"bronze",name:"1トン達成",val:function(c){return c.totalVol;},need:1000,unit:"t"},
+ {cat:"総重量",rarity:"bronze",name:"10トン達成",val:function(c){return c.totalVol;},need:10000,unit:"t"},
+ {cat:"総重量",rarity:"silver",name:"100トン達成",val:function(c){return c.totalVol;},need:100000,unit:"t"},
+ {cat:"総重量",rarity:"gold",name:"1000トン達成",val:function(c){return c.totalVol;},need:1000000,unit:"t"},
+ {cat:"総重量",rarity:"legend",name:"総重量100万kg",val:function(c){return c.totalVol;},need:1000000,unit:"t"},
+ // PR
+ {cat:"PR(自己ベスト)",rarity:"bronze",name:"初PR",val:function(c){return c.prCount;},need:1,unit:"pr"},
+ {cat:"PR(自己ベスト)",rarity:"bronze",name:"5回PR更新",val:function(c){return c.prCount;},need:5,unit:"pr"},
+ {cat:"PR(自己ベスト)",rarity:"silver",name:"10回PR更新",val:function(c){return c.prCount;},need:10,unit:"pr"},
+ {cat:"PR(自己ベスト)",rarity:"gold",name:"50回PR更新",val:function(c){return c.prCount;},need:50,unit:"pr"},
+ {cat:"PR(自己ベスト)",rarity:"gold",name:"限界突破(1日3種目PR)",val:function(c){return c.maxPRday;},need:3,unit:"pr"},
+ {cat:"PR(自己ベスト)",rarity:"silver",name:"進化中(1週間で5PR)",val:function(c){return c.maxPRweek;},need:5,unit:"pr"},
+ // 種目コレクション
+ {cat:"種目コレクション",rarity:"bronze",name:"10種目解放",val:function(c){return c.distinctCount;},need:10,unit:"exercises"},
+ {cat:"種目コレクション",rarity:"silver",name:"20種目解放",val:function(c){return c.distinctCount;},need:20,unit:"exercises"},
+ {cat:"種目コレクション",rarity:"gold",name:"50種目解放",val:function(c){return c.distinctCount;},need:50,unit:"exercises"},
+ // 部位マスター
+ {cat:"部位マスター",rarity:"gold",name:"胸マスター",val:function(c){return pr(c,"胸");},need:1000,unit:"reps"},
+ {cat:"部位マスター",rarity:"gold",name:"背中マスター",val:function(c){return pr(c,"背中");},need:1000,unit:"reps"},
+ {cat:"部位マスター",rarity:"gold",name:"脚マスター",val:function(c){return pr(c,"足");},need:1000,unit:"reps"},
+ {cat:"部位マスター",rarity:"diamond",name:"全身マスター",done:function(c){return pr(c,"胸")>=300&&pr(c,"背中")>=300&&pr(c,"足")>=300&&pr(c,"肩")>=300&&pr(c,"腕")>=300;}},
+ // 部位
+ {cat:"部位",rarity:"bronze",name:"胸の日",val:function(c){return pd(c,"胸");},need:1,unit:"days"},
+ {cat:"部位",rarity:"bronze",name:"背中の日",val:function(c){return pd(c,"背中");},need:1,unit:"days"},
+ {cat:"部位",rarity:"bronze",name:"脚の日",val:function(c){return pd(c,"足");},need:1,unit:"days"},
+ {cat:"部位",rarity:"bronze",name:"肩の日",val:function(c){return pd(c,"肩");},need:1,unit:"days"},
+ {cat:"部位",rarity:"bronze",name:"腕の日",val:function(c){return pd(c,"腕");},need:1,unit:"days"},
+ {cat:"部位",rarity:"silver",name:"胸100回",val:function(c){return pr(c,"胸");},need:100,unit:"reps"},
+ {cat:"部位",rarity:"silver",name:"背中100回",val:function(c){return pr(c,"背中");},need:100,unit:"reps"},
+ {cat:"部位",rarity:"silver",name:"脚100回",val:function(c){return pr(c,"足");},need:100,unit:"reps"},
+ {cat:"部位",rarity:"silver",name:"脚の日から逃げるな(脚20回)",val:function(c){return pd(c,"足");},need:20,unit:"days"},
+ // 時間帯
+ {cat:"時間帯",rarity:"bronze",name:"深夜の狂戦士(0〜5時)",val:function(c){return c.midnightCount;},need:1,unit:"count"},
+ {cat:"時間帯",rarity:"silver",name:"朝活トレーニー(5〜8時 10回)",val:function(c){return c.morningCount;},need:10,unit:"count"},
+ {cat:"時間帯",rarity:"silver",name:"夜の戦士(22時以降 20回)",val:function(c){return c.nightCount;},need:20,unit:"count"},
+ {cat:"時間帯",rarity:"diamond",name:"真夜中の覚醒者(深夜10回)",val:function(c){return c.midnightCount;},need:10,unit:"count"},
+ // 体重・ネタ
+ {cat:"体重・ネタ",rarity:"silver",name:"バルクアップ中(体重+5kg)",val:function(c){return c.weightUp;},need:5,unit:"kg"},
+ {cat:"体重・ネタ",rarity:"silver",name:"ダイエット成功(体重−5kg)",val:function(c){return c.weightDown;},need:5,unit:"kg"},
+ {cat:"体重・ネタ",rarity:"silver",name:"プロテイン中毒(体重記録50回)",val:function(c){return c.weightLogCount;},need:50,unit:"count"},
+ {cat:"体重・ネタ",rarity:"bronze",name:"鉄の友達(累計10000kg)",val:function(c){return c.totalVol;},need:10000,unit:"t"},
+ {cat:"体重・ネタ",rarity:"bronze",name:"レッグデイ被害者(脚トレ翌日も)",done:function(c){return c.legNext;}},
+ // 日付・レア
+ {cat:"日付・レア",rarity:"gold",name:"元旦トレーニー(1/1)",done:function(c){return !!c.datesMMDD["01-01"];}},
+ {cat:"日付・レア",rarity:"gold",name:"大晦日トレーニー(12/31)",done:function(c){return !!c.datesMMDD["12-31"];}},
+ {cat:"日付・レア",rarity:"silver",name:"クリスマストレーニー(12/25)",done:function(c){return !!c.datesMMDD["12-25"];}},
+ {cat:"日付・レア",rarity:"diamond",name:"閏年トレーニー(2/29)",done:function(c){return !!c.datesMMDD["02-29"];}},
+ {cat:"日付・レア",rarity:"gold",name:"誕生日トレーニー",done:function(c){return !!(birthday&&c.datesMMDD[birthday]);}},
+ {cat:"日付・レア",rarity:"legend",name:"1000回ワークアウト",val:function(c){return c.days;},need:1000,unit:"days"}
+];
+BADGES.forEach(function(b){b.id=b.name;});
+
+function badgeOk(b,ctx){return b.done?b.done(ctx):(b.val(ctx)>=b.need);}
+function badgeRemain(b,ctx){
+ if(b.done)return "未達成";
+ var left=b.need-b.val(ctx);if(left<0)left=0;
+ var u=b.unit;
+ if(u==="days")return "あと "+left+"日";
+ if(u==="kg")return "あと "+(Math.round(left*10)/10)+"kg";
+ if(u==="t")return "あと "+(Math.round(left/100)/10)+"t";
+ if(u==="reps")return "あと "+left+"回";
+ if(u==="sets")return "あと "+left+"セット";
+ if(u==="exercises")return "あと "+left+"種目";
+ if(u==="pr")return "あと "+left+"回";
+ return "あと "+left;
+}
+function trophySvg(){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v4a4 4 0 0 1-8 0zM6 5H4v1a3 3 0 0 0 3 3M18 5h2v1a3 3 0 0 1-3 3M9.5 13h5l-.5 4h-4zM8 20h8M9 20l.5-3M15 20l-.5-3"></path></svg>';}
+
+function buildBadge(){
+ var ctx=computeCtx();
+ var groupsMap={};
+ BADGES.forEach(function(b){if(b.group){(groupsMap[b.group]=groupsMap[b.group]||[]).push(b);}});
+ var groupCur={};
+ Object.keys(groupsMap).forEach(function(g){
+  var sorted=groupsMap[g].slice().sort(function(a,b){return a.need-b.need;});
+  var val=sorted[0].val(ctx),cur=null,next=null;
+  sorted.forEach(function(t){if(val>=t.need)cur=t;});
+  for(var i=0;i<sorted.length;i++){if(val<sorted[i].need){next=sorted[i];break;}}
+  groupCur[g]={sorted:sorted,val:val,cur:cur,next:next};
+ });
+ var Y=0,X=0,tally={bronze:0,silver:0,gold:0,diamond:0,legend:0};
+ BADGES.forEach(function(b){if(!b.group){Y++;if(badgeOk(b,ctx)){X++;tally[b.rarity]++;}}});
+ Object.keys(groupCur).forEach(function(g){var gc=groupCur[g];Y++;if(gc.cur){X++;tally[gc.cur.rarity]++;}});
+
+ var html='<div class="wn-view-title">実績</div><p class="wn-view-sub">解除 '+X+' / '+Y+'</p>';
+ html+='<div class="wn-rar-tally">'+["bronze","silver","gold","diamond","legend"].map(function(r){return '<span>'+RAR[r].e+' '+tally[r]+'</span>';}).join("")+'</div>';
+ html+='<div class="wn-badge-grid">';
+ var renderedGroups={};
+ BADGES.forEach(function(b){
+  if(b.group){
+   if(renderedGroups[b.group])return; renderedGroups[b.group]=1;
+   var gc=groupCur[b.group],ok=!!gc.cur,rar=ok?gc.cur.rarity:gc.sorted[0].rarity,sub,pct;
+   if(!ok){var f=gc.sorted[0];pct=Math.max(0,Math.min(100,gc.val/f.need*100));sub="あと "+(f.need-gc.val)+"日";}
+   else if(gc.next){pct=Math.max(0,Math.min(100,(gc.val-gc.cur.need)/(gc.next.need-gc.cur.need)*100));sub="現在 "+gc.cur.need+"日 ・ 次 "+gc.next.need+"日";}
+   else{pct=100;sub=gc.cur.need+"日 達成！";}
+   var icon=ok?('<div class="wn-cic"><img src="cont-'+gc.cur.need+'.png" alt="" onerror="this.parentNode.classList.add(\'noimg\');this.remove();"><span class="wn-cemoji">'+rarE(rar)+'</span></div>'):('<div class="wn-badge-em">'+rarE(rar)+'</div>');
+   html+='<div class="wn-badge '+(ok?'wn-badge-on':'wn-badge-off')+'"'+(ok?' style="border-color:'+rarC(rar)+'"':'')+'>'
+    +icon+'<div class="wn-badge-nm">継続</div>'
+    +'<div class="wn-badge-sub"'+(ok?' style="color:'+rarC(rar)+'"':'')+'>'+esc(sub)+'</div>'
+    +'<div class="wn-badge-bar"><div style="width:'+pct+'%"></div></div></div>';
+  }else{
+   var ok2=badgeOk(b,ctx);
+   var pct2=b.done?(ok2?100:0):Math.max(0,Math.min(100,b.val(ctx)/b.need*100));
+   html+='<div class="wn-badge '+(ok2?'wn-badge-on':'wn-badge-off')+'"'+(ok2?' style="border-color:'+rarC(b.rarity)+'"':'')+'>'
+    +'<div class="wn-badge-em">'+rarE(b.rarity)+'</div>'
+    +'<div class="wn-badge-nm">'+esc(b.name)+'</div>'
+    +'<div class="wn-badge-sub"'+(ok2?' style="color:'+rarC(b.rarity)+'"':'')+'>'+(ok2?'達成':esc(badgeRemain(b,ctx)))+'</div>'
+    +(ok2?'':'<div class="wn-badge-bar"><div style="width:'+pct2+'%"></div></div>')+'</div>';
+  }
+ });
+ html+='</div>';
+ return html;
+}
+
+function unlockedIds(){var ctx=computeCtx();return BADGES.filter(function(b){return badgeOk(b,ctx);}).map(function(b){return b.id;});}
+var badgeSeen=null;
+var BADGE_VER=3;
+function initBadges(){
+ loadBirthday();
+ var raw=null,ver=null;
+ try{raw=JSON.parse(localStorage.getItem("workout-badges-seen"));ver=localStorage.getItem("workout-badges-ver");}catch(e){}
+ if(raw&&Array.isArray(raw)&&ver===String(BADGE_VER))badgeSeen=new Set(raw);
+ else{badgeSeen=new Set(unlockedIds());saveBadges();}
+}
+function saveBadges(){try{localStorage.setItem("workout-badges-seen",JSON.stringify(Array.from(badgeSeen)));localStorage.setItem("workout-badges-ver",String(BADGE_VER));}catch(e){}}
+function checkNewBadges(){
+ var ids=unlockedIds(),newly=[];
+ ids.forEach(function(id){if(!badgeSeen.has(id)){badgeSeen.add(id);newly.push(id);}});
+ if(newly.length)saveBadges();
+ return BADGES.filter(function(b){return newly.indexOf(b.id)>=0;});
+}
+
+var pendingBadges=null;
+function showBadgeUnlock(list){
+ var names=list.map(function(b){return rarE(b.rarity)+" "+b.name;}).join("　");
+ $bonus.innerHTML='<div class="wn-scrim wn-bonus-scrim" data-action="badge-close"><div class="wn-bonus">'
+  +'<div class="wn-bonus-label">ACHIEVEMENT UNLOCKED</div>'
+  +'<div class="wn-stamp wn-stamp-badge">'+trophySvg()+'</div>'
+  +'<div class="wn-badge-utitle">実績解除！</div>'
+  +'<div class="wn-bonus-msg">'+esc(names)+'</div>'
+  +'<button class="wn-bonus-btn" data-action="badge-close">受け取る</button></div></div>';
+}
+
 /* ===== ログインボーナス ===== */
 function showBonus(total,msg){
  $bonus.innerHTML='<div class="wn-scrim wn-bonus-scrim" data-action="bonus-close"><div class="wn-bonus"><div class="wn-bonus-label">WORKOUT LOG-IN BONUS</div>'
@@ -947,10 +1249,19 @@ function showBonus(total,msg){
 }
 $bonus.addEventListener("click",function(e){
  var t=e.target.closest("[data-action]"); if(!t)return;
- if(t.dataset.action==="bonus-close"){ if(e.target===t||t.classList.contains("wn-bonus-btn"))$bonus.innerHTML=""; }
+ var a=t.dataset.action;
+ if(a==="bonus-close"){
+  if(e.target===t||t.classList.contains("wn-bonus-btn")){
+   $bonus.innerHTML="";
+   if(pendingBadges&&pendingBadges.length){var pb=pendingBadges;pendingBadges=null;showBadgeUnlock(pb);}
+  }
+ }else if(a==="badge-close"){
+  if(e.target===t||t.classList.contains("wn-bonus-btn"))$bonus.innerHTML="";
+ }
 });
 
 /* ===== 起動 ===== */
+initBadges();
 renderMain();
 </script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("./sw.js").catch(function(){});});}</script>
