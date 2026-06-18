@@ -186,10 +186,14 @@ button{cursor:pointer;}
 .wn-bd-em.lock{filter:grayscale(1);opacity:.45;}
 .wn-bd-num{font-family:'Oswald';font-size:26px;font-weight:600;margin-bottom:12px;}
 .wn-bd-bar{height:9px;max-width:280px;margin:0 auto;}
-.wn-bd-tiers{display:flex;justify-content:center;gap:16px;margin-top:22px;flex-wrap:wrap;}
-.wn-bd-tier{display:flex;flex-direction:column;align-items:center;font-size:26px;opacity:.3;}
+.wn-bd-tiers{display:flex;justify-content:center;gap:10px;margin-top:22px;flex-wrap:wrap;}
+.wn-bd-tier{display:flex;flex-direction:column;align-items:center;font-size:30px;opacity:.3;}
 .wn-bd-tier.on{opacity:1;}
-.wn-bd-tier small{font-size:11px;color:var(--muted);font-family:'Oswald';margin-top:2px;}
+.wn-bd-tim{position:relative;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;}
+.wn-bd-tim img{width:34px;height:34px;object-fit:contain;display:block;}
+.wn-bd-tem{font-size:28px;line-height:1;display:none;}
+.wn-bd-tim.noimg .wn-bd-tem{display:inline;}
+.wn-bd-tier small{font-size:10px;color:var(--muted);font-family:'Oswald';margin-top:3px;}
 .wn-fs{position:fixed;inset:0;z-index:60;background:var(--bg);display:flex;flex-direction:column;
   padding:max(14px,env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom));overflow-y:auto;}
 .wn-fs-head{display:flex;align-items:center;justify-content:space-between;flex:0 0 auto;}
@@ -1272,7 +1276,7 @@ function openBadgeDetail(id,group){
   iconHtml=cur?('<div class="wn-bd-ci"><img src="cont-'+cur.need+'.png" onerror="this.parentNode.classList.add(\'noimg\');this.remove();"><span class="wn-bd-em">'+rarE(rar)+'</span></div>'):('<div class="wn-bd-ci noimg"><span class="wn-bd-em lock">'+rarE(rar)+'</span></div>');
   if(next){pct=Math.max(0,Math.min(100,val/next.need*100));numText=val+" / "+next.need;unit="日";}
   else{pct=100;numText=String(val);unit="日 ・ 最高ランク";}
-  extra='<div class="wn-bd-tiers">'+gm.map(function(t){return '<span class="wn-bd-tier '+(val>=t.need?'on':'off')+'">'+rarE(t.rarity)+'<small>'+t.need+'</small></span>';}).join("")+'</div>';
+  extra='<div class="wn-bd-tiers">'+gm.map(function(t){return '<span class="wn-bd-tier '+(val>=t.need?'on':'off')+'"><span class="wn-bd-tim"><img src="cont-'+t.need+'.png" alt="" onerror="this.parentNode.classList.add(\'noimg\');this.remove();"><span class="wn-bd-tem">'+rarE(t.rarity)+'</span></span><small>'+t.need+'</small></span>';}).join("")+'</div>';
  }else{
   var b=null;for(var j=0;j<BADGES.length;j++){if(BADGES[j].id===id){b=BADGES[j];break;}}
   if(!b)return;
