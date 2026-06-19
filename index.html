@@ -1110,14 +1110,14 @@ function pd(ctx,k){return ctx.perPartDays[k]||0;}
 function V(metric,need,unit){return {val:function(c){return c[metric];},need:need,unit:unit};}
 var BADGES=[
  // 継続(1枚でランクアップ)
- {cat:"継続",group:"継続",rarity:"silver",name:"初記録",val:function(c){return c.days;},need:1,unit:"days"},
- {cat:"継続",group:"継続",rarity:"bronze",name:"3日継続",val:function(c){return c.days;},need:3,unit:"days"},
- {cat:"継続",group:"継続",rarity:"bronze",name:"7日継続",val:function(c){return c.days;},need:7,unit:"days"},
- {cat:"継続",group:"継続",rarity:"silver",name:"30日継続",val:function(c){return c.days;},need:30,unit:"days"},
- {cat:"継続",group:"継続",rarity:"silver",name:"60日継続",val:function(c){return c.days;},need:60,unit:"days"},
- {cat:"継続",group:"継続",rarity:"gold",name:"100日継続",val:function(c){return c.days;},need:100,unit:"days"},
- {cat:"継続",group:"継続",rarity:"gold",name:"200日継続",val:function(c){return c.days;},need:200,unit:"days"},
- {cat:"継続",group:"継続",rarity:"legend",name:"365日継続",val:function(c){return c.days;},need:365,unit:"days"},
+ {cat:"継続",group:"継続",rarity:"silver",img:"cont-1",name:"初記録",val:function(c){return c.days;},need:1,unit:"days"},
+ {cat:"継続",group:"継続",rarity:"bronze",img:"cont-3",name:"3日継続",val:function(c){return c.days;},need:3,unit:"days"},
+ {cat:"継続",group:"継続",rarity:"bronze",img:"cont-7",name:"7日継続",val:function(c){return c.days;},need:7,unit:"days"},
+ {cat:"継続",group:"継続",rarity:"silver",img:"cont-30",name:"30日継続",val:function(c){return c.days;},need:30,unit:"days"},
+ {cat:"継続",group:"継続",rarity:"silver",img:"cont-60",name:"60日継続",val:function(c){return c.days;},need:60,unit:"days"},
+ {cat:"継続",group:"継続",rarity:"gold",img:"cont-100",name:"100日継続",val:function(c){return c.days;},need:100,unit:"days"},
+ {cat:"継続",group:"継続",rarity:"gold",img:"cont-200",name:"200日継続",val:function(c){return c.days;},need:200,unit:"days"},
+ {cat:"継続",group:"継続",rarity:"legend",img:"cont-365",name:"365日継続",val:function(c){return c.days;},need:365,unit:"days"},
  // セット・レップ
  {cat:"セット・レップ",rarity:"bronze",name:"10セット達成",val:function(c){return c.totalSets;},need:10,unit:"sets"},
  {cat:"セット・レップ",rarity:"bronze",name:"100セット達成",val:function(c){return c.totalSets;},need:100,unit:"sets"},
@@ -1176,10 +1176,10 @@ var BADGES=[
  {cat:"部位",rarity:"silver",name:"脚100回",val:function(c){return pr(c,"足");},need:100,unit:"reps"},
  {cat:"部位",rarity:"silver",name:"脚の日から逃げるな(脚20回)",val:function(c){return pd(c,"足");},need:20,unit:"days"},
  // 時間帯
- {cat:"時間帯",rarity:"bronze",img:"night",name:"深夜の狂戦士(0〜5時)",val:function(c){return c.midnightCount;},need:1,unit:"count"},
  {cat:"時間帯",rarity:"silver",img:"morning",name:"朝活トレーニー(5〜8時 10回)",val:function(c){return c.morningCount;},need:10,unit:"count"},
  {cat:"時間帯",rarity:"silver",img:"night",name:"夜の戦士(22時以降 20回)",val:function(c){return c.nightCount;},need:20,unit:"count"},
- {cat:"時間帯",rarity:"diamond",img:"night",name:"真夜中の覚醒者(深夜10回)",val:function(c){return c.midnightCount;},need:10,unit:"count"},
+ {cat:"時間帯",rarity:"bronze",group:"深夜",img:"midnight",name:"深夜の狂戦士(0〜5時)",val:function(c){return c.midnightCount;},need:1,unit:"count"},
+ {cat:"時間帯",rarity:"diamond",group:"深夜",img:"midnight",name:"真夜中の覚醒者(深夜10回)",val:function(c){return c.midnightCount;},need:10,unit:"count"},
  // 体重・ネタ
  {cat:"体重・ネタ",rarity:"silver",name:"バルクアップ中(体重+5kg)",val:function(c){return c.weightUp;},need:5,unit:"kg"},
  {cat:"体重・ネタ",rarity:"silver",name:"ダイエット成功(体重−5kg)",val:function(c){return c.weightDown;},need:5,unit:"kg"},
@@ -1239,7 +1239,7 @@ function buildBadge(){
    if(!ok)pct=Math.max(0,Math.min(100,gc.val/gc.sorted[0].need*100));
    else if(gc.next)pct=Math.max(0,Math.min(100,gc.val/gc.next.need*100));
    else pct=100;
-   var ic=ok?('<div class="wn-bt-ci"><img src="cont-'+gc.cur.need+'.png" alt="" onerror="this.parentNode.classList.add(\'noimg\');this.remove();"><span class="wn-bt-em">'+rarE(rar)+'</span></div>'):('<div class="wn-bt-ci noimg"><span class="wn-bt-em">'+rarE(rar)+'</span></div>');
+   var ic=ok?('<div class="wn-bt-ci"><img src="'+gc.cur.img+'.png" alt="" onerror="this.parentNode.classList.add(\'noimg\');this.remove();"><span class="wn-bt-em">'+rarE(rar)+'</span></div>'):('<div class="wn-bt-ci noimg"><span class="wn-bt-em">'+rarE(rar)+'</span></div>');
    html+='<button class="wn-btile'+(ok?'':' locked')+'" data-action="badge-detail" data-group="'+esc(b.group)+'">'+ic+'<div class="wn-pbar'+(!gc.next&&ok?' done':'')+'"><div style="width:'+pct+'%"></div></div></button>';
   }else{
    var ok2=badgeOk(b,ctx);
@@ -1264,7 +1264,7 @@ function fmtPair(v,need,u){
  if(u==="t")return (Math.round(v/100)/10)+" / "+(need/1000);
  return v+" / "+need;
 }
-function unitLabel(u){return {days:"日",kg:"kg",t:"t",reps:"回",sets:"セット",exercises:"種目",pr:"回（PR）"}[u]||"";}
+function unitLabel(u){return {days:"日",kg:"kg",t:"t",reps:"回",sets:"セット",exercises:"種目",pr:"回（PR）",count:"回"}[u]||"回";}
 
 function openBadgeDetail(id,group){
  var ctx=computeCtx(),name,iconHtml,numText,unit="",pct,extra="";
@@ -1273,12 +1273,13 @@ function openBadgeDetail(id,group){
   var val=gm[0].val(ctx),cur=null,next=null;
   gm.forEach(function(t){if(val>=t.need)cur=t;});
   for(var i=0;i<gm.length;i++){if(val<gm[i].need){next=gm[i];break;}}
-  name="継続";
+  name=group;
   var rar=cur?cur.rarity:gm[0].rarity;
-  iconHtml=cur?('<div class="wn-bd-ci"><img src="cont-'+cur.need+'.png" onerror="this.parentNode.classList.add(\'noimg\');this.remove();"><span class="wn-bd-em">'+rarE(rar)+'</span></div>'):('<div class="wn-bd-ci noimg"><span class="wn-bd-em lock">'+rarE(rar)+'</span></div>');
-  if(next){pct=Math.max(0,Math.min(100,val/next.need*100));numText=val+" / "+next.need;unit="日";}
-  else{pct=100;numText=String(val);unit="日 ・ 最高ランク";}
-  extra='<div class="wn-bd-tiers">'+gm.map(function(t){return '<span class="wn-bd-tier '+(val>=t.need?'on':'off')+'"><span class="wn-bd-tim"><img src="cont-'+t.need+'.png" alt="" onerror="this.parentNode.classList.add(\'noimg\');this.remove();"><span class="wn-bd-tem">'+rarE(t.rarity)+'</span></span><small>'+t.need+'</small></span>';}).join("")+'</div>';
+  var ul=unitLabel(gm[0].unit);
+  iconHtml=cur?('<div class="wn-bd-ci"><img src="'+cur.img+'.png" onerror="this.parentNode.classList.add(\'noimg\');this.remove();"><span class="wn-bd-em">'+rarE(rar)+'</span></div>'):('<div class="wn-bd-ci noimg"><span class="wn-bd-em lock">'+rarE(rar)+'</span></div>');
+  if(next){pct=Math.max(0,Math.min(100,val/next.need*100));numText=val+" / "+next.need;unit=ul;}
+  else{pct=100;numText=String(val);unit=ul+" ・ 最高ランク";}
+  extra='<div class="wn-bd-tiers">'+gm.map(function(t){return '<span class="wn-bd-tier '+(val>=t.need?'on':'off')+'"><span class="wn-bd-tim"><img src="'+t.img+'.png" alt="" onerror="this.parentNode.classList.add(\'noimg\');this.remove();"><span class="wn-bd-tem">'+rarE(t.rarity)+'</span></span><small>'+t.need+'</small></span>';}).join("")+'</div>';
  }else{
   var b=null;for(var j=0;j<BADGES.length;j++){if(BADGES[j].id===id){b=BADGES[j];break;}}
   if(!b)return;
@@ -1300,7 +1301,7 @@ function openBadgeDetail(id,group){
 
 function unlockedIds(){var ctx=computeCtx();return BADGES.filter(function(b){return badgeOk(b,ctx);}).map(function(b){return b.id;});}
 var badgeSeen=null;
-var BADGE_VER=3;
+var BADGE_VER=4;
 function initBadges(){
  loadBirthday();
  var raw=null,ver=null;
