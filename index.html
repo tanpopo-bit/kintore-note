@@ -830,6 +830,7 @@ function handleSave(){
  }).filter(function(e){return e.entries.length>0;});
 
  var date=sheet.date;
+ var hadWorkoutBefore=!!(records[date]&&records[date].exercises&&records[date].exercises.length>0);
  if(cleaned.length===0){
   var o0=records[date]||{}; delete o0.exercises;
   if(o0.weight===undefined||o0.weight==="")delete records[date]; else records[date]=o0;
@@ -839,10 +840,11 @@ function handleSave(){
  save();
  var newly=checkNewBadges();
  var isToday=date===todayStr()&&cleaned.length>0;
+ var firstLogToday=isToday&&!hadWorkoutBefore;
  var newTotal=trainedDays().length;
  closeOverlay();
  renderMain();
- if(isToday){
+ if(firstLogToday){
   var msg=MILESTONES[newTotal]||MESSAGES[Math.floor(Math.random()*MESSAGES.length)];
   pendingBadges=newly.length?newly:null;
   showBonus(newTotal,msg);
