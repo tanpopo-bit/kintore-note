@@ -167,23 +167,32 @@ button{cursor:pointer;}
 .wn-cont-im.noimg .wn-cont-em{display:inline;}
 .wn-cont-nm{font-weight:700;font-size:14px;margin-top:4px;}
 .wn-cont-sub{font-size:11px;color:var(--muted);margin-top:2px;margin-bottom:6px;}
-.wn-bgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(86px,1fr));gap:18px 10px;margin-top:4px;}
+.wn-bgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:26px 16px;margin-top:8px;}
 .wn-btile{background:none;border:none;padding:0;display:flex;flex-direction:column;align-items:center;cursor:pointer;}
 .wn-btile:active{transform:scale(.94);}
-.wn-bt-ci{position:relative;width:100%;max-width:74px;display:flex;align-items:center;justify-content:center;}
-.wn-bt-ci img{width:100%;height:auto;display:block;}
+.wn-bt-ci{position:relative;width:100%;max-width:118px;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;}
+.wn-bt-ci img{width:100%;height:100%;object-fit:contain;display:block;}
+.wn-bt-ci svg{width:74%;height:auto;display:block;}
+.wn-ic{display:block;width:86%;height:86%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;}
+.wn-btile.locked .wn-ic{opacity:.6;}
+.wn-bd-ci .wn-ic{width:78%;height:78%;}
+.wn-bd-tim .wn-ic{width:30px;height:30px;}
 .wn-bt-em{font-size:38px;line-height:1;display:none;}
 .wn-bt-ci.noimg .wn-bt-em{display:inline;}
 .wn-btile.locked .wn-bt-em{filter:grayscale(1);opacity:.4;}
 .wn-btile.locked .wn-bt-ci img{filter:grayscale(1);opacity:.4;}
-.wn-pbar{height:6px;width:100%;background:var(--surface2);border-radius:3px;overflow:hidden;margin-top:9px;}
+.wn-btile.locked .wn-bt-ci svg{filter:grayscale(1);opacity:.32;}
+.wn-pbar{height:7px;width:78%;background:var(--surface2);border-radius:4px;overflow:hidden;margin-top:13px;}
 .wn-pbar>div{height:100%;border-radius:3px;background:#2DD4BF;}
 .wn-pbar.done>div{background:var(--gold);}
 .wn-bd-body{text-align:center;padding-bottom:8px;}
 .wn-bd-ci{width:130px;height:130px;margin:8px auto 16px;display:flex;align-items:center;justify-content:center;}
 .wn-bd-ci img{width:100%;height:auto;}
+.wn-bd-ci svg{width:64px;height:64px;}
 .wn-bd-em{font-size:70px;line-height:1;display:none;}
 .wn-bd-ci.noimg .wn-bd-em{display:inline;}
+.wn-bd-ci.lk img{filter:grayscale(1);opacity:.5;}
+.wn-bd-ci.lk svg{filter:grayscale(1);opacity:.45;}
 .wn-bd-em.lock{filter:grayscale(1);opacity:.45;}
 .wn-bd-num{font-family:'Oswald';font-size:26px;font-weight:600;margin-bottom:12px;}
 .wn-bd-bar{height:9px;max-width:280px;margin:0 auto;}
@@ -192,6 +201,7 @@ button{cursor:pointer;}
 .wn-bd-tier.on{opacity:1;}
 .wn-bd-tim{position:relative;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;}
 .wn-bd-tim img{width:34px;height:34px;object-fit:contain;display:block;}
+.wn-bd-tim svg{width:30px;height:30px;display:block;}
 .wn-bd-tem{font-size:28px;line-height:1;display:none;}
 .wn-bd-tim.noimg .wn-bd-tem{display:inline;}
 .wn-bd-tier small{font-size:10px;color:var(--muted);font-family:'Oswald';margin-top:3px;}
@@ -202,6 +212,7 @@ button{cursor:pointer;}
 .wn-fs-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
 .wn-fs .wn-bd-ci{width:180px;height:180px;margin:0 auto 24px;}
 .wn-fs .wn-bd-em{font-size:100px;}
+.wn-fs .wn-bd-ci svg{width:96px;height:96px;}
 .wn-fs-num{font-family:'Oswald';font-size:46px;font-weight:700;line-height:1;}
 .wn-fs-unit{font-size:14px;color:var(--muted);margin-top:8px;}
 .wn-fs-bar{height:10px;width:78%;max-width:300px;margin:26px auto 0;}
@@ -1037,6 +1048,23 @@ function saveBirthday(v){birthday=v||null;try{if(v)localStorage.setItem("workout
 var RAR={bronze:{c:"#CD7F32",e:"🥉"},silver:{c:"#C0C7D0",e:"🥈"},gold:{c:"#FFC24B",e:"🥇"},diamond:{c:"#5BD1E6",e:"💎"},legend:{c:"#B583FF",e:"🌈"}};
 function rarE(r){return (RAR[r]||RAR.bronze).e;}
 function rarC(r){return (RAR[r]||RAR.bronze).c;}
+var ICONS={
+ db:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/></svg>',
+ login:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 23c-4 0-7-2.8-7-7 0-3 1.8-5 3-7 .4 2 1.6 3 2.6 3 .9 0 1.4-1 1.2-2.6C12 5 14 7 14 9c.7-.8 1-2 1-3 2 1.8 4 4 4 8 0 4.2-3 7-7 7z"/></svg>',
+ chest:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7c2.5-2 5-2 8 .5 3-2.5 5.5-2.5 8-.5"/><path d="M4 7c0 6 3 9 8 10 5-1 8-4 8-10"/><path d="M12 17.5V8"/></svg>',
+ back:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14l-2.2 11c-.5 2.6-2.1 4-4.8 5.4C9.3 19 7.7 17.6 7.2 15z"/><path d="M12 4v16"/><path d="M7.8 11h8.4"/></svg>',
+ shoulder:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16c0-5 4-8 9-8"/><path d="M22 16c0-5-4-8-9-8"/><circle cx="12" cy="6.5" r="3"/></svg>',
+ leg:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2.5c-3.3 0-5.5 2.4-5.5 5.6 0 1.8.8 3 1.4 4-.6 1.2-1.5 2-1.5 3.9 0 3.1 2.2 3.7 2.2 6.5h3.3c0-2.8-1.3-3.6-1.3-5.5 0-1.2.9-1.8 1.7-2.5 1.7-1.6 2.5-3.5 2.5-5.6 0-3.7-1.7-6.9-2.5-6.9z"/></svg>',
+ arm:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-5a4 4 0 0 1 4-4h3"/><path d="M11 12c3.5 0 5.5-2.2 5.5-5.5"/><path d="M16.5 6.5C19 6.5 20 8.5 20 11c0 4.5-3.5 8-9 8"/><path d="M4 21h4"/></svg>',
+ bench:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M5 3.5v5M19 3.5v5"/><path d="M4 13h16"/><path d="M7 13v6M17 13v6"/></svg>',
+ squat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16"/><path d="M6 3v4M18 3v4"/><circle cx="12" cy="10" r="1.6"/><path d="M12 11.5v3l-2 6M12 14.5l2 6"/><path d="M8.5 14.5h7"/></svg>',
+ deadlift:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4" r="1.6"/><path d="M12 5.5v5"/><path d="M8 8.5l4 2 4-2"/><path d="M4 18h16"/><path d="M6 15.5v5M18 15.5v5"/></svg>',
+ tons:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="7" ry="2.5"/><path d="M5 6v4.5c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6"/><path d="M5 10.5V15c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-4.5"/></svg>',
+ sets:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 6H20M9.5 12H20M9.5 18H20"/><path d="M4 5.3l1.4 1.4L8 4M4 11.3l1.4 1.4L8 10M4 17.3l1.4 1.4L8 16"/></svg>'
+};
+function badgeSvg(icon,rarity){return (ICONS[icon]||ICONS.db).replace("<svg ",'<svg style="color:'+rarC(rarity)+'" ');}
+var MUTEDC="#4b515c";
+function iconHTML(icon,color){return '<span class="wn-ic" style="background-color:'+color+';-webkit-mask-image:url('+icon+'.png);mask-image:url('+icon+'.png);"></span>';}
 
 function longestStreak(sorted){
  var best=0,cur=0,prev=null;
@@ -1109,90 +1137,66 @@ function pr(ctx,k){return ctx.perPartReps[k]||0;}
 function pd(ctx,k){return ctx.perPartDays[k]||0;}
 function V(metric,need,unit){return {val:function(c){return c[metric];},need:need,unit:unit};}
 var BADGES=[
- // 継続(1枚でランクアップ)
- {cat:"継続",group:"継続",rarity:"silver",img:"cont-1",name:"初記録",val:function(c){return c.days;},need:1,unit:"days"},
- {cat:"継続",group:"継続",rarity:"bronze",img:"cont-3",name:"3日継続",val:function(c){return c.days;},need:3,unit:"days"},
- {cat:"継続",group:"継続",rarity:"bronze",img:"cont-7",name:"7日継続",val:function(c){return c.days;},need:7,unit:"days"},
- {cat:"継続",group:"継続",rarity:"silver",img:"cont-30",name:"30日継続",val:function(c){return c.days;},need:30,unit:"days"},
- {cat:"継続",group:"継続",rarity:"silver",img:"cont-60",name:"60日継続",val:function(c){return c.days;},need:60,unit:"days"},
- {cat:"継続",group:"継続",rarity:"gold",img:"cont-100",name:"100日継続",val:function(c){return c.days;},need:100,unit:"days"},
- {cat:"継続",group:"継続",rarity:"gold",img:"cont-200",name:"200日継続",val:function(c){return c.days;},need:200,unit:"days"},
- {cat:"継続",group:"継続",rarity:"legend",img:"cont-365",name:"365日継続",val:function(c){return c.days;},need:365,unit:"days"},
- // セット・レップ
- {cat:"セット・レップ",rarity:"bronze",name:"10セット達成",val:function(c){return c.totalSets;},need:10,unit:"sets"},
- {cat:"セット・レップ",rarity:"bronze",name:"100セット達成",val:function(c){return c.totalSets;},need:100,unit:"sets"},
- {cat:"セット・レップ",rarity:"silver",name:"1000セット達成",val:function(c){return c.totalSets;},need:1000,unit:"sets"},
- {cat:"セット・レップ",rarity:"gold",name:"10000セット達成",val:function(c){return c.totalSets;},need:10000,unit:"sets"},
- {cat:"セット・レップ",rarity:"bronze",name:"100回記録",val:function(c){return c.totalReps;},need:100,unit:"reps"},
- {cat:"セット・レップ",rarity:"silver",name:"1000回記録",val:function(c){return c.totalReps;},need:1000,unit:"reps"},
- {cat:"セット・レップ",rarity:"gold",name:"10000回記録",val:function(c){return c.totalReps;},need:10000,unit:"reps"},
- // 1日チャレンジ
- {cat:"1日チャレンジ",rarity:"bronze",name:"1日100レップ",val:function(c){return c.dayMaxReps;},need:100,unit:"reps"},
- {cat:"1日チャレンジ",rarity:"silver",name:"1日500レップ",val:function(c){return c.dayMaxReps;},need:500,unit:"reps"},
- {cat:"1日チャレンジ",rarity:"gold",name:"1日1000レップ",val:function(c){return c.dayMaxReps;},need:1000,unit:"reps"},
- {cat:"1日チャレンジ",rarity:"bronze",name:"1日20セット",val:function(c){return c.dayMaxSets;},need:20,unit:"sets"},
- {cat:"1日チャレンジ",rarity:"silver",name:"ワンタップ職人(1日50セット)",val:function(c){return c.dayMaxSets;},need:50,unit:"sets"},
- {cat:"1日チャレンジ",rarity:"silver",name:"1日10種目",val:function(c){return c.dayMaxExercises;},need:10,unit:"exercises"},
- // 重量(種目別)
- {cat:"重量",rarity:"bronze",name:"ベンチ 40kg",val:function(c){return c.maxW["ベンチプレス"]||0;},need:40,unit:"kg"},
- {cat:"重量",rarity:"bronze",name:"ベンチ 60kg",val:function(c){return c.maxW["ベンチプレス"]||0;},need:60,unit:"kg"},
- {cat:"重量",rarity:"silver",name:"ベンチ 80kg",val:function(c){return c.maxW["ベンチプレス"]||0;},need:80,unit:"kg"},
- {cat:"重量",rarity:"gold",name:"ベンチ 100kg",val:function(c){return c.maxW["ベンチプレス"]||0;},need:100,unit:"kg"},
- {cat:"重量",rarity:"diamond",name:"ベンチ 120kg",val:function(c){return c.maxW["ベンチプレス"]||0;},need:120,unit:"kg"},
- {cat:"重量",rarity:"silver",name:"スクワット 100kg",val:function(c){return c.maxW["スクワット"]||0;},need:100,unit:"kg"},
- {cat:"重量",rarity:"gold",name:"スクワット 140kg",val:function(c){return c.maxW["スクワット"]||0;},need:140,unit:"kg"},
- {cat:"重量",rarity:"gold",name:"デッドリフト 150kg",val:function(c){return c.maxW["デッドリフト"]||0;},need:150,unit:"kg"},
- {cat:"重量",rarity:"diamond",name:"デッドリフト 200kg",val:function(c){return c.maxW["デッドリフト"]||0;},need:200,unit:"kg"},
+ // 累計ログイン
+ {cat:"ログイン",group:"累計ログイン",icon:"login",rarity:"bronze",name:"累計ログイン1日",val:function(c){return c.days;},need:1,unit:"days"},
+ {cat:"ログイン",group:"累計ログイン",icon:"login",rarity:"silver",name:"累計ログイン7日",val:function(c){return c.days;},need:7,unit:"days"},
+ {cat:"ログイン",group:"累計ログイン",icon:"login",rarity:"gold",name:"累計ログイン30日",val:function(c){return c.days;},need:30,unit:"days"},
+ {cat:"ログイン",group:"累計ログイン",icon:"login",rarity:"diamond",name:"累計ログイン100日",val:function(c){return c.days;},need:100,unit:"days"},
+ {cat:"ログイン",group:"累計ログイン",icon:"login",rarity:"legend",name:"累計ログイン365日",val:function(c){return c.days;},need:365,unit:"days"},
+ // 部位の日
+ {cat:"部位",group:"胸の日",icon:"chest",rarity:"bronze",name:"胸の日1",val:function(c){return pd(c,"胸");},need:1,unit:"days"},
+ {cat:"部位",group:"胸の日",icon:"chest",rarity:"silver",name:"胸の日10",val:function(c){return pd(c,"胸");},need:10,unit:"days"},
+ {cat:"部位",group:"胸の日",icon:"chest",rarity:"gold",name:"胸の日30",val:function(c){return pd(c,"胸");},need:30,unit:"days"},
+ {cat:"部位",group:"胸の日",icon:"chest",rarity:"diamond",name:"胸の日60",val:function(c){return pd(c,"胸");},need:60,unit:"days"},
+ {cat:"部位",group:"胸の日",icon:"chest",rarity:"legend",name:"胸の日100",val:function(c){return pd(c,"胸");},need:100,unit:"days"},
+ {cat:"部位",group:"背中の日",icon:"back",rarity:"bronze",name:"背中の日1",val:function(c){return pd(c,"背中");},need:1,unit:"days"},
+ {cat:"部位",group:"背中の日",icon:"back",rarity:"silver",name:"背中の日10",val:function(c){return pd(c,"背中");},need:10,unit:"days"},
+ {cat:"部位",group:"背中の日",icon:"back",rarity:"gold",name:"背中の日30",val:function(c){return pd(c,"背中");},need:30,unit:"days"},
+ {cat:"部位",group:"背中の日",icon:"back",rarity:"diamond",name:"背中の日60",val:function(c){return pd(c,"背中");},need:60,unit:"days"},
+ {cat:"部位",group:"背中の日",icon:"back",rarity:"legend",name:"背中の日100",val:function(c){return pd(c,"背中");},need:100,unit:"days"},
+ {cat:"部位",group:"肩の日",icon:"shoulder",rarity:"bronze",name:"肩の日1",val:function(c){return pd(c,"肩");},need:1,unit:"days"},
+ {cat:"部位",group:"肩の日",icon:"shoulder",rarity:"silver",name:"肩の日10",val:function(c){return pd(c,"肩");},need:10,unit:"days"},
+ {cat:"部位",group:"肩の日",icon:"shoulder",rarity:"gold",name:"肩の日30",val:function(c){return pd(c,"肩");},need:30,unit:"days"},
+ {cat:"部位",group:"肩の日",icon:"shoulder",rarity:"diamond",name:"肩の日60",val:function(c){return pd(c,"肩");},need:60,unit:"days"},
+ {cat:"部位",group:"肩の日",icon:"shoulder",rarity:"legend",name:"肩の日100",val:function(c){return pd(c,"肩");},need:100,unit:"days"},
+ {cat:"部位",group:"脚の日",icon:"leg",rarity:"bronze",name:"脚の日1",val:function(c){return pd(c,"足");},need:1,unit:"days"},
+ {cat:"部位",group:"脚の日",icon:"leg",rarity:"silver",name:"脚の日10",val:function(c){return pd(c,"足");},need:10,unit:"days"},
+ {cat:"部位",group:"脚の日",icon:"leg",rarity:"gold",name:"脚の日30",val:function(c){return pd(c,"足");},need:30,unit:"days"},
+ {cat:"部位",group:"脚の日",icon:"leg",rarity:"diamond",name:"脚の日60",val:function(c){return pd(c,"足");},need:60,unit:"days"},
+ {cat:"部位",group:"脚の日",icon:"leg",rarity:"legend",name:"脚の日100",val:function(c){return pd(c,"足");},need:100,unit:"days"},
+ {cat:"部位",group:"腕の日",icon:"arm",rarity:"bronze",name:"腕の日1",val:function(c){return pd(c,"腕");},need:1,unit:"days"},
+ {cat:"部位",group:"腕の日",icon:"arm",rarity:"silver",name:"腕の日10",val:function(c){return pd(c,"腕");},need:10,unit:"days"},
+ {cat:"部位",group:"腕の日",icon:"arm",rarity:"gold",name:"腕の日30",val:function(c){return pd(c,"腕");},need:30,unit:"days"},
+ {cat:"部位",group:"腕の日",icon:"arm",rarity:"diamond",name:"腕の日60",val:function(c){return pd(c,"腕");},need:60,unit:"days"},
+ {cat:"部位",group:"腕の日",icon:"arm",rarity:"legend",name:"腕の日100",val:function(c){return pd(c,"腕");},need:100,unit:"days"},
+ // BIG3
+ {cat:"BIG3",group:"ベンチプレス",icon:"bench",rarity:"bronze",name:"ベンチプレス40kg",val:function(c){return c.maxW["ベンチプレス"]||0;},need:40,unit:"kg"},
+ {cat:"BIG3",group:"ベンチプレス",icon:"bench",rarity:"silver",name:"ベンチプレス60kg",val:function(c){return c.maxW["ベンチプレス"]||0;},need:60,unit:"kg"},
+ {cat:"BIG3",group:"ベンチプレス",icon:"bench",rarity:"gold",name:"ベンチプレス80kg",val:function(c){return c.maxW["ベンチプレス"]||0;},need:80,unit:"kg"},
+ {cat:"BIG3",group:"ベンチプレス",icon:"bench",rarity:"diamond",name:"ベンチプレス100kg",val:function(c){return c.maxW["ベンチプレス"]||0;},need:100,unit:"kg"},
+ {cat:"BIG3",group:"ベンチプレス",icon:"bench",rarity:"legend",name:"ベンチプレス120kg",val:function(c){return c.maxW["ベンチプレス"]||0;},need:120,unit:"kg"},
+ {cat:"BIG3",group:"スクワット",icon:"squat",rarity:"bronze",name:"スクワット50kg",val:function(c){return c.maxW["スクワット"]||0;},need:50,unit:"kg"},
+ {cat:"BIG3",group:"スクワット",icon:"squat",rarity:"silver",name:"スクワット80kg",val:function(c){return c.maxW["スクワット"]||0;},need:80,unit:"kg"},
+ {cat:"BIG3",group:"スクワット",icon:"squat",rarity:"gold",name:"スクワット110kg",val:function(c){return c.maxW["スクワット"]||0;},need:110,unit:"kg"},
+ {cat:"BIG3",group:"スクワット",icon:"squat",rarity:"diamond",name:"スクワット140kg",val:function(c){return c.maxW["スクワット"]||0;},need:140,unit:"kg"},
+ {cat:"BIG3",group:"スクワット",icon:"squat",rarity:"legend",name:"スクワット180kg",val:function(c){return c.maxW["スクワット"]||0;},need:180,unit:"kg"},
+ {cat:"BIG3",group:"デッドリフト",icon:"deadlift",rarity:"bronze",name:"デッドリフト60kg",val:function(c){return c.maxW["デッドリフト"]||0;},need:60,unit:"kg"},
+ {cat:"BIG3",group:"デッドリフト",icon:"deadlift",rarity:"silver",name:"デッドリフト100kg",val:function(c){return c.maxW["デッドリフト"]||0;},need:100,unit:"kg"},
+ {cat:"BIG3",group:"デッドリフト",icon:"deadlift",rarity:"gold",name:"デッドリフト140kg",val:function(c){return c.maxW["デッドリフト"]||0;},need:140,unit:"kg"},
+ {cat:"BIG3",group:"デッドリフト",icon:"deadlift",rarity:"diamond",name:"デッドリフト180kg",val:function(c){return c.maxW["デッドリフト"]||0;},need:180,unit:"kg"},
+ {cat:"BIG3",group:"デッドリフト",icon:"deadlift",rarity:"legend",name:"デッドリフト220kg",val:function(c){return c.maxW["デッドリフト"]||0;},need:220,unit:"kg"},
  // 総重量
- {cat:"総重量",rarity:"bronze",name:"1トン達成",val:function(c){return c.totalVol;},need:1000,unit:"t"},
- {cat:"総重量",rarity:"bronze",name:"10トン達成",val:function(c){return c.totalVol;},need:10000,unit:"t"},
- {cat:"総重量",rarity:"silver",name:"100トン達成",val:function(c){return c.totalVol;},need:100000,unit:"t"},
- {cat:"総重量",rarity:"gold",name:"1000トン達成",val:function(c){return c.totalVol;},need:1000000,unit:"t"},
- {cat:"総重量",rarity:"legend",name:"総重量100万kg",val:function(c){return c.totalVol;},need:1000000,unit:"t"},
- // PR
- {cat:"PR(自己ベスト)",rarity:"bronze",name:"初PR",val:function(c){return c.prCount;},need:1,unit:"pr"},
- {cat:"PR(自己ベスト)",rarity:"bronze",name:"5回PR更新",val:function(c){return c.prCount;},need:5,unit:"pr"},
- {cat:"PR(自己ベスト)",rarity:"silver",name:"10回PR更新",val:function(c){return c.prCount;},need:10,unit:"pr"},
- {cat:"PR(自己ベスト)",rarity:"gold",name:"50回PR更新",val:function(c){return c.prCount;},need:50,unit:"pr"},
- {cat:"PR(自己ベスト)",rarity:"gold",name:"限界突破(1日3種目PR)",val:function(c){return c.maxPRday;},need:3,unit:"pr"},
- {cat:"PR(自己ベスト)",rarity:"silver",name:"進化中(1週間で5PR)",val:function(c){return c.maxPRweek;},need:5,unit:"pr"},
- // 種目コレクション
- {cat:"種目コレクション",rarity:"bronze",name:"10種目解放",val:function(c){return c.distinctCount;},need:10,unit:"exercises"},
- {cat:"種目コレクション",rarity:"silver",name:"20種目解放",val:function(c){return c.distinctCount;},need:20,unit:"exercises"},
- {cat:"種目コレクション",rarity:"gold",name:"50種目解放",val:function(c){return c.distinctCount;},need:50,unit:"exercises"},
- // 部位マスター
- {cat:"部位マスター",rarity:"gold",name:"胸マスター",val:function(c){return pr(c,"胸");},need:1000,unit:"reps"},
- {cat:"部位マスター",rarity:"gold",name:"背中マスター",val:function(c){return pr(c,"背中");},need:1000,unit:"reps"},
- {cat:"部位マスター",rarity:"gold",name:"脚マスター",val:function(c){return pr(c,"足");},need:1000,unit:"reps"},
- {cat:"部位マスター",rarity:"diamond",name:"全身マスター",done:function(c){return pr(c,"胸")>=300&&pr(c,"背中")>=300&&pr(c,"足")>=300&&pr(c,"肩")>=300&&pr(c,"腕")>=300;}},
- // 部位
- {cat:"部位",rarity:"bronze",name:"胸の日",val:function(c){return pd(c,"胸");},need:1,unit:"days"},
- {cat:"部位",rarity:"bronze",name:"背中の日",val:function(c){return pd(c,"背中");},need:1,unit:"days"},
- {cat:"部位",rarity:"bronze",name:"脚の日",val:function(c){return pd(c,"足");},need:1,unit:"days"},
- {cat:"部位",rarity:"bronze",name:"肩の日",val:function(c){return pd(c,"肩");},need:1,unit:"days"},
- {cat:"部位",rarity:"bronze",name:"腕の日",val:function(c){return pd(c,"腕");},need:1,unit:"days"},
- {cat:"部位",rarity:"silver",name:"胸100回",val:function(c){return pr(c,"胸");},need:100,unit:"reps"},
- {cat:"部位",rarity:"silver",name:"背中100回",val:function(c){return pr(c,"背中");},need:100,unit:"reps"},
- {cat:"部位",rarity:"silver",name:"脚100回",val:function(c){return pr(c,"足");},need:100,unit:"reps"},
- {cat:"部位",rarity:"silver",name:"脚の日から逃げるな(脚20回)",val:function(c){return pd(c,"足");},need:20,unit:"days"},
- // 時間帯
- {cat:"時間帯",rarity:"silver",img:"morning",name:"朝活トレーニー(5〜8時 10回)",val:function(c){return c.morningCount;},need:10,unit:"count"},
- {cat:"時間帯",rarity:"silver",img:"night",name:"夜の戦士(22時以降 20回)",val:function(c){return c.nightCount;},need:20,unit:"count"},
- {cat:"時間帯",rarity:"bronze",group:"深夜",img:"midnight",name:"深夜の狂戦士(0〜5時)",val:function(c){return c.midnightCount;},need:1,unit:"count"},
- {cat:"時間帯",rarity:"diamond",group:"深夜",img:"midnight",name:"真夜中の覚醒者(深夜10回)",val:function(c){return c.midnightCount;},need:10,unit:"count"},
- // 体重・ネタ
- {cat:"体重・ネタ",rarity:"silver",name:"バルクアップ中(体重+5kg)",val:function(c){return c.weightUp;},need:5,unit:"kg"},
- {cat:"体重・ネタ",rarity:"silver",name:"ダイエット成功(体重−5kg)",val:function(c){return c.weightDown;},need:5,unit:"kg"},
- {cat:"体重・ネタ",rarity:"silver",name:"プロテイン中毒(体重記録50回)",val:function(c){return c.weightLogCount;},need:50,unit:"count"},
- {cat:"体重・ネタ",rarity:"bronze",name:"鉄の友達(累計10000kg)",val:function(c){return c.totalVol;},need:10000,unit:"t"},
- {cat:"体重・ネタ",rarity:"bronze",name:"レッグデイ被害者(脚トレ翌日も)",done:function(c){return c.legNext;}},
- // 日付・レア
- {cat:"日付・レア",rarity:"gold",name:"元旦トレーニー(1/1)",done:function(c){return !!c.datesMMDD["01-01"];}},
- {cat:"日付・レア",rarity:"gold",name:"大晦日トレーニー(12/31)",done:function(c){return !!c.datesMMDD["12-31"];}},
- {cat:"日付・レア",rarity:"silver",name:"クリスマストレーニー(12/25)",done:function(c){return !!c.datesMMDD["12-25"];}},
- {cat:"日付・レア",rarity:"diamond",name:"閏年トレーニー(2/29)",done:function(c){return !!c.datesMMDD["02-29"];}},
- {cat:"日付・レア",rarity:"gold",name:"誕生日トレーニー",done:function(c){return !!(birthday&&c.datesMMDD[birthday]);}},
- {cat:"日付・レア",rarity:"legend",name:"1000回ワークアウト",val:function(c){return c.days;},need:1000,unit:"days"}
+ {cat:"総重量",group:"総重量",icon:"tons",rarity:"bronze",name:"総重量1t",val:function(c){return Math.round(c.totalVol/100)/10;},need:1,unit:"t"},
+ {cat:"総重量",group:"総重量",icon:"tons",rarity:"silver",name:"総重量10t",val:function(c){return Math.round(c.totalVol/100)/10;},need:10,unit:"t"},
+ {cat:"総重量",group:"総重量",icon:"tons",rarity:"gold",name:"総重量50t",val:function(c){return Math.round(c.totalVol/100)/10;},need:50,unit:"t"},
+ {cat:"総重量",group:"総重量",icon:"tons",rarity:"diamond",name:"総重量100t",val:function(c){return Math.round(c.totalVol/100)/10;},need:100,unit:"t"},
+ {cat:"総重量",group:"総重量",icon:"tons",rarity:"legend",name:"総重量500t",val:function(c){return Math.round(c.totalVol/100)/10;},need:500,unit:"t"},
+ // 総セット数
+ {cat:"セット",group:"総セット数",icon:"sets",rarity:"bronze",name:"総セット100",val:function(c){return c.totalSets;},need:100,unit:"sets"},
+ {cat:"セット",group:"総セット数",icon:"sets",rarity:"silver",name:"総セット500",val:function(c){return c.totalSets;},need:500,unit:"sets"},
+ {cat:"セット",group:"総セット数",icon:"sets",rarity:"gold",name:"総セット1000",val:function(c){return c.totalSets;},need:1000,unit:"sets"},
+ {cat:"セット",group:"総セット数",icon:"sets",rarity:"diamond",name:"総セット5000",val:function(c){return c.totalSets;},need:5000,unit:"sets"},
+ {cat:"セット",group:"総セット数",icon:"sets",rarity:"legend",name:"総セット10000",val:function(c){return c.totalSets;},need:10000,unit:"sets"},
 ];
 BADGES.forEach(function(b){b.id=b.name;});
 
@@ -1239,12 +1243,12 @@ function buildBadge(){
    if(!ok)pct=Math.max(0,Math.min(100,gc.val/gc.sorted[0].need*100));
    else if(gc.next)pct=Math.max(0,Math.min(100,gc.val/gc.next.need*100));
    else pct=100;
-   var ic=ok?('<div class="wn-bt-ci"><img src="'+gc.cur.img+'.png" alt="" onerror="this.parentNode.classList.add(\'noimg\');this.remove();"><span class="wn-bt-em">'+rarE(rar)+'</span></div>'):('<div class="wn-bt-ci noimg"><span class="wn-bt-em">'+rarE(rar)+'</span></div>');
+   var ic='<div class="wn-bt-ci">'+iconHTML(b.icon,ok?rarC(rar):MUTEDC)+'</div>';
    html+='<button class="wn-btile'+(ok?'':' locked')+'" data-action="badge-detail" data-group="'+esc(b.group)+'">'+ic+'<div class="wn-pbar'+(!gc.next&&ok?' done':'')+'"><div style="width:'+pct+'%"></div></div></button>';
   }else{
    var ok2=badgeOk(b,ctx);
    var pct2=b.done?(ok2?100:0):Math.max(0,Math.min(100,b.val(ctx)/b.need*100));
-   var fic=b.img?('<div class="wn-bt-ci"><img src="'+b.img+'.png" alt="" onerror="this.parentNode.classList.add(\'noimg\');this.remove();"><span class="wn-bt-em">'+rarE(b.rarity)+'</span></div>'):('<div class="wn-bt-ci noimg"><span class="wn-bt-em">'+rarE(b.rarity)+'</span></div>');
+   var fic='<div class="wn-bt-ci">'+iconHTML(b.icon,ok2?rarC(b.rarity):MUTEDC)+'</div>';
    html+='<button class="wn-btile'+(ok2?'':' locked')+'" data-action="badge-detail" data-id="'+esc(b.id)+'">'+fic+'<div class="wn-pbar'+(ok2?' done':'')+'"><div style="width:'+pct2+'%"></div></div></button>';
   }
  });
@@ -1276,16 +1280,16 @@ function openBadgeDetail(id,group){
   name=group;
   var rar=cur?cur.rarity:gm[0].rarity;
   var ul=unitLabel(gm[0].unit);
-  iconHtml=cur?('<div class="wn-bd-ci"><img src="'+cur.img+'.png" onerror="this.parentNode.classList.add(\'noimg\');this.remove();"><span class="wn-bd-em">'+rarE(rar)+'</span></div>'):('<div class="wn-bd-ci noimg"><span class="wn-bd-em lock">'+rarE(rar)+'</span></div>');
+  iconHtml='<div class="wn-bd-ci'+(cur?'':' lk')+'">'+iconHTML(gm[0].icon,cur?rarC(rar):MUTEDC)+'</div>';
   if(next){pct=Math.max(0,Math.min(100,val/next.need*100));numText=val+" / "+next.need;unit=ul;}
   else{pct=100;numText=String(val);unit=ul+" ・ 最高ランク";}
-  extra='<div class="wn-bd-tiers">'+gm.map(function(t){return '<span class="wn-bd-tier '+(val>=t.need?'on':'off')+'"><span class="wn-bd-tim"><img src="'+t.img+'.png" alt="" onerror="this.parentNode.classList.add(\'noimg\');this.remove();"><span class="wn-bd-tem">'+rarE(t.rarity)+'</span></span><small>'+t.need+'</small></span>';}).join("")+'</div>';
+  extra='<div class="wn-bd-tiers">'+gm.map(function(t){return '<span class="wn-bd-tier '+(val>=t.need?'on':'off')+'"><span class="wn-bd-tim">'+iconHTML(t.icon,(val>=t.need)?rarC(t.rarity):MUTEDC)+'</span><small>'+t.need+'</small></span>';}).join("")+'</div>';
  }else{
   var b=null;for(var j=0;j<BADGES.length;j++){if(BADGES[j].id===id){b=BADGES[j];break;}}
   if(!b)return;
   name=b.name;
   var ok=badgeOk(b,ctx);
-  iconHtml=b.img?('<div class="wn-bd-ci"><img src="'+b.img+'.png" onerror="this.parentNode.classList.add(\'noimg\');this.remove();"><span class="wn-bd-em'+(ok?'':' lock')+'">'+rarE(b.rarity)+'</span></div>'):('<div class="wn-bd-ci noimg"><span class="wn-bd-em'+(ok?'':' lock')+'">'+rarE(b.rarity)+'</span></div>');
+  iconHtml='<div class="wn-bd-ci'+(ok?'':' lk')+'">'+iconHTML(b.icon,ok?rarC(b.rarity):MUTEDC)+'</div>';
   if(b.done){pct=ok?100:0;numText=ok?"達成！":"未達成";unit="";}
   else{var v=b.val(ctx);pct=Math.max(0,Math.min(100,v/b.need*100));
    if(ok){numText="達成！";unit=fmtVal(v,b.unit);}
@@ -1301,7 +1305,7 @@ function openBadgeDetail(id,group){
 
 function unlockedIds(){var ctx=computeCtx();return BADGES.filter(function(b){return badgeOk(b,ctx);}).map(function(b){return b.id;});}
 var badgeSeen=null;
-var BADGE_VER=4;
+var BADGE_VER=5;
 function initBadges(){
  loadBirthday();
  var raw=null,ver=null;
