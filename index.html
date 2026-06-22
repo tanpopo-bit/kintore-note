@@ -37,6 +37,10 @@ button{cursor:pointer;}
 .wn-bk-ic{display:block;width:24px;height:24px;background-color:var(--muted);-webkit-mask:url(backup.png) center/contain no-repeat;mask:url(backup.png) center/contain no-repeat;}
 .wn-bk-btn:active{transform:scale(.92);}
 .wn-bk-body{margin-top:16px;}
+.wn-tgl-row{display:flex;align-items:center;justify-content:space-between;margin:6px 0 12px;font-size:14px;}
+.wn-tgl{border:1px solid var(--line);background:var(--surface2);color:var(--muted);border-radius:20px;padding:7px 20px;font-weight:700;font-size:13px;min-width:64px;letter-spacing:.05em;}
+.wn-tgl.on{background:var(--gold);color:#1a1205;border-color:var(--gold);}
+.wn-tgl:active{transform:scale(.95);}
 .wn-stat-num{font-family:'Oswald';font-weight:700;font-size:30px;line-height:1;}
 .wn-gold{color:var(--gold);}
 .wn-stat-label{font-size:10px;color:var(--muted);margin-top:4px;letter-spacing:.08em;}
@@ -617,6 +621,8 @@ $app.addEventListener("click",function(e){
  else if(a==="copy-json"){copyJson();}
  else if(a==="import-paste"){importPaste();}
  else if(a==="open-backup"){showBackup();}
+ else if(a==="toggle-quick"){saveQuick(!quickOn,quickSets,quickReps);renderMain();toast(quickOn?"クイック入力：ON":"クイック入力：OFF");}
+ else if(a==="save-quick"){var qs=document.getElementById("qSets"),qr=document.getElementById("qReps");saveQuick(quickOn,qs?qs.value.trim():"",qr?qr.value.trim():"");renderMain();toast("デフォルト値を保存しました");}
  else if(a==="save-birthday"){var bi=document.getElementById("bdayInput");if(bi){var mm=bi.value?bi.value.slice(5):"";saveBirthday(mm||null);toast(mm?("誕生日 "+mm+" を登録しました"):"誕生日を削除しました");renderMain();}}
 });
 $app.addEventListener("change",function(e){if(e.target&&e.target.id==="importFile"){importFromFile(e.target.files[0]);}});
@@ -767,7 +773,7 @@ $ov.addEventListener("click",function(e){
   else if(a==="add-ex"){addExercise(t.dataset.part,t.dataset.name);}
   else if(a==="add-custom"){addExercise(sheetUI.pickPart,sheetUI.custom);}
   else if(a==="remove-ex"){sheet.exercises=sheet.exercises.filter(function(x){return x._id!==t.dataset.ex;});renderContent();}
-  else if(a==="add-entry"){findEx(t.dataset.ex).entries.push({drop:false,weight:"",reps:"",sets:""});renderContent();}
+  else if(a==="add-entry"){findEx(t.dataset.ex).entries.push(newEntry());renderContent();}
   else if(a==="remove-entry"){var ex=findEx(t.dataset.ex);ex.entries.splice(+t.dataset.idx,1);renderContent();}
   else if(a==="toggle-drop"){toggleDrop(t.dataset.ex,+t.dataset.idx);}
   else if(a==="sug"){applySug(t.dataset.ex,{weight:+t.dataset.w,reps:+t.dataset.r,sets:+t.dataset.s});}
@@ -803,13 +809,13 @@ $ov.addEventListener("input",function(e){
 
 function addExercise(part,name){
  if(!name||!name.trim())return;
- sheet.exercises.push({_id:uid(),part:part,name:name.trim(),entries:[{drop:false,weight:"",reps:"",sets:""}]});
+ sheet.exercises.push({_id:uid(),part:part,name:name.trim(),entries:[newEntry()]});
  sheetUI.adding=false;sheetUI.pickPart=null;sheetUI.custom="";
  renderContent();
 }
 function toggleDrop(id,idx){
  var ex=findEx(id);var en=ex.entries[idx];
- ex.entries[idx]=en.drop?{drop:false,weight:"",reps:"",sets:""}:{drop:true,setCount:"",steps:[]};
+ ex.entries[idx]=en.drop?newEntry():{drop:true,setCount:"",steps:[]};
  renderContent();
 }
 function applySug(id,sug){
@@ -878,6 +884,13 @@ function buildSettings(){
   +'<p class="wn-data-note">誕生日を登録すると「誕生日トレーニー」の実績が解除できます。</p>'
   +'<div class="wn-weight-row"><span class="wn-weight-label">誕生日</span><input type="date" class="wn-weight-input" id="bdayInput" value="'+(birthday?("2000-"+birthday):"")+'"><button class="wn-weight-save" data-action="save-birthday">保存</button></div>'
   +(birthday?'<div class="wn-weight-ok">✓ 登録済み（'+esc(birthday)+'）</div>':'')
+  +'</div>'
+  +'<div class="wn-data-sec"><div class="wn-data-h">クイック入力（デフォルト値）</div>'
+  +'<p class="wn-data-note">オンにすると、新しい入力行にセット数（と回数）が最初から入ります。例えばセット数を3にしておけば、あとは重量と回数だけ入力すれば済みます。</p>'
+  +'<div class="wn-tgl-row"><span>この機能を使う</span><button class="wn-tgl '+(quickOn?'on':'')+'" data-action="toggle-quick">'+(quickOn?'ON':'OFF')+'</button></div>'
+  +'<div class="wn-weight-row"><span class="wn-weight-label">セット数</span><input type="number" inputmode="numeric" class="wn-weight-input" id="qSets" value="'+esc(quickSets)+'" placeholder="例: 3"></div>'
+  +'<div class="wn-weight-row"><span class="wn-weight-label">回数（任意）</span><input type="number" inputmode="numeric" class="wn-weight-input" id="qReps" value="'+esc(quickReps)+'" placeholder="空欄でOK"></div>'
+  +'<button class="wn-weight-save wn-data-block" data-action="save-quick" style="margin-top:4px">保存</button>'
   +'</div>'
   +'<p class="wn-data-note">データのバックアップ・取り込みは、ホーム画面右上の <b>データアイコン</b>（累計トレ日数の左）から行えます。</p>';
 }
@@ -1065,6 +1078,10 @@ function buildAnalysis(){
 var birthday=null;
 function loadBirthday(){try{birthday=localStorage.getItem("workout-birthday")||null;}catch(e){birthday=null;}}
 function saveBirthday(v){birthday=v||null;try{if(v)localStorage.setItem("workout-birthday",v);else localStorage.removeItem("workout-birthday");}catch(e){}}
+var quickOn=false,quickSets="",quickReps="";
+function loadQuick(){try{quickOn=localStorage.getItem("workout-quick-on")==="1";quickSets=localStorage.getItem("workout-quick-sets")||"";quickReps=localStorage.getItem("workout-quick-reps")||"";}catch(e){quickOn=false;quickSets="";quickReps="";}}
+function saveQuick(on,sets,reps){quickOn=!!on;quickSets=sets||"";quickReps=reps||"";try{localStorage.setItem("workout-quick-on",on?"1":"0");if(sets)localStorage.setItem("workout-quick-sets",String(sets));else localStorage.removeItem("workout-quick-sets");if(reps)localStorage.setItem("workout-quick-reps",String(reps));else localStorage.removeItem("workout-quick-reps");}catch(e){}}
+function newEntry(){var e={drop:false,weight:"",reps:"",sets:""};if(quickOn){if(quickSets!=="")e.sets=String(quickSets);if(quickReps!=="")e.reps=String(quickReps);}return e;}
 
 var RAR={bronze:{c:"#CD7F32",e:"🥉"},silver:{c:"#C0C7D0",e:"🥈"},gold:{c:"#FFC24B",e:"🥇"},diamond:{c:"#5BD1E6",e:"💎"},legend:{c:"#B583FF",e:"🌈"}};
 function rarE(r){return (RAR[r]||RAR.bronze).e;}
@@ -1332,7 +1349,7 @@ function unlockedIds(){var ctx=computeCtx();return BADGES.filter(function(b){ret
 var badgeSeen=null;
 var BADGE_VER=7;
 function initBadges(){
- loadBirthday();
+ loadBirthday();loadQuick();
  var raw=null,ver=null;
  try{raw=JSON.parse(localStorage.getItem("workout-badges-seen"));ver=localStorage.getItem("workout-badges-ver");}catch(e){}
  if(raw&&Array.isArray(raw)&&ver===String(BADGE_VER))badgeSeen=new Set(raw);
