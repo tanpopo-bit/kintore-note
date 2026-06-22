@@ -1199,6 +1199,8 @@ var BADGES=[
  {cat:"セット",group:"総セット数",icon:"sets",rarity:"gold",name:"総セット1000",val:function(c){return c.totalSets;},need:1000,unit:"sets"},
  {cat:"セット",group:"総セット数",icon:"sets",rarity:"diamond",name:"総セット5000",val:function(c){return c.totalSets;},need:5000,unit:"sets"},
  {cat:"セット",group:"総セット数",icon:"sets",rarity:"legend",name:"総セット10000",val:function(c){return c.totalSets;},need:10000,unit:"sets"},
+ // 特別
+ {cat:"特別",icon:"birthday",rarity:"gold",name:"誕生日トレーニー",done:function(c){return !!(birthday&&c.datesMMDD[birthday]);}},
 ];
 BADGES.forEach(function(b){b.id=b.name;});
 
@@ -1307,7 +1309,7 @@ function openBadgeDetail(id,group){
 
 function unlockedIds(){var ctx=computeCtx();return BADGES.filter(function(b){return badgeOk(b,ctx);}).map(function(b){return b.id;});}
 var badgeSeen=null;
-var BADGE_VER=5;
+var BADGE_VER=6;
 function initBadges(){
  loadBirthday();
  var raw=null,ver=null;
