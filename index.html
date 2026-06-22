@@ -41,6 +41,10 @@ button{cursor:pointer;}
 .wn-tgl{border:1px solid var(--line);background:var(--surface2);color:var(--muted);border-radius:20px;padding:7px 20px;font-weight:700;font-size:13px;min-width:64px;letter-spacing:.05em;}
 .wn-tgl.on{background:var(--gold);color:#1a1205;border-color:var(--gold);}
 .wn-tgl:active{transform:scale(.95);}
+.wn-chart-goal{stroke:var(--gold);stroke-width:1.5;stroke-dasharray:5 4;opacity:.8;}
+.wn-chart-goal-l{fill:var(--gold);font-size:11px;font-family:'Oswald';opacity:.95;}
+.wn-greet{font-size:15px;color:var(--text);margin:2px 2px 14px;font-weight:600;}
+.wn-greet b{color:var(--gold);}
 .wn-stat-num{font-family:'Oswald';font-weight:700;font-size:30px;line-height:1;}
 .wn-gold{color:var(--gold);}
 .wn-stat-label{font-size:10px;color:var(--muted);margin-top:4px;letter-spacing:.08em;}
@@ -472,12 +476,13 @@ function weightDiffText(){
 }
 
 /* 折れ線グラフ（自作SVG・外部読み込みなし） */
-function svgLine(series, unit){
+function svgLine(series, unit, goal){
  if(!series||series.length===0)return '<div class="wn-empty-note">データがありません。</div>';
  var W=560,H=210,padL=46,padR=16,padT=18,padB=30;
  var vals=series.map(function(s){return s.value;});
  var dmin=Math.min.apply(null,vals),dmax=Math.max.apply(null,vals);
  var lo=dmin,hi=dmax;
+ if(goal!=null){lo=Math.min(lo,goal);hi=Math.max(hi,goal);}
  if(lo===hi){lo=lo-1;hi=hi+1;}
  var range=hi-lo; lo=lo-range*0.12; hi=hi+range*0.12; range=hi-lo;
  var n=series.length;
@@ -503,6 +508,11 @@ function svgLine(series, unit){
  }
  // 点
  series.forEach(function(s,i){g+='<circle class="wn-chart-dot" cx="'+xAt(i)+'" cy="'+yAt(s.value)+'" r="3.2"></circle>';});
+ if(goal!=null){
+  var gy=yAt(goal);
+  g+='<line class="wn-chart-goal" x1="'+padL+'" y1="'+gy+'" x2="'+(W-padR)+'" y2="'+gy+'"></line>';
+  g+='<text class="wn-chart-goal-l" x="'+(W-padR)+'" y="'+(gy-5)+'" text-anchor="end">目標 '+fmtV(goal)+'kg</text>';
+ }
  // x ラベル（最大5個）
  var step=Math.max(1,Math.ceil(n/5));
  for(var i=0;i<n;i+=step){g+='<text class="wn-chart-xl" x="'+xAt(i)+'" y="'+(H-padB+18)+'" text-anchor="middle">'+series[i].label+'</text>';}
@@ -548,6 +558,7 @@ function buildHome(){
  return '<header class="wn-header"><div><div class="wn-title">筋トレノート</div><div class="wn-sub">WORKOUT NOTE</div></div>'
   +'<div class="wn-stat-wrap"><button class="wn-bk-btn" data-action="open-backup" aria-label="データのバックアップ"><span class="wn-bk-ic"></span></button>'
   +'<div class="wn-stat"><span class="wn-stat-num wn-gold">'+total+'</span><span class="wn-stat-label">累計トレ日数</span></div></div></header>'
+  +(nickname?'<div class="wn-greet">'+greetWord()+'、<b>'+esc(nickname)+'</b>さん</div>':'')
   +'<section class="wn-card"><div class="wn-cal-head"><button class="wn-nav" data-action="prev">‹</button>'
   +'<div class="wn-month"><span class="wn-year">'+cursor.y+'</span><span class="wn-mon">'+(cursor.m+1)+'月</span></div>'
   +'<button class="wn-nav" data-action="next">›</button></div>'
@@ -621,6 +632,8 @@ $app.addEventListener("click",function(e){
  else if(a==="copy-json"){copyJson();}
  else if(a==="import-paste"){importPaste();}
  else if(a==="open-backup"){showBackup();}
+ else if(a==="save-nick"){var ni=document.getElementById("nickInput");saveNickname(ni?ni.value:"");renderMain();toast(nickname?("ようこそ、"+nickname+"さん"):"ニックネームを削除しました");}
+ else if(a==="save-goal"){var gi=document.getElementById("goalInput");saveGoalWeight(gi?gi.value.trim():"");renderMain();toast(goalWeight!=null?("目標体重 "+goalWeight+"kg を設定しました"):"目標体重を削除しました");}
  else if(a==="toggle-quick"){saveQuick(!quickOn,quickSets,quickReps);renderMain();toast(quickOn?"クイック入力：ON":"クイック入力：OFF");}
  else if(a==="save-quick"){var qs=document.getElementById("qSets"),qr=document.getElementById("qReps");saveQuick(quickOn,qs?qs.value.trim():"",qr?qr.value.trim():"");renderMain();toast("デフォルト値を保存しました");}
  else if(a==="save-birthday"){var bi=document.getElementById("bdayInput");if(bi){var mm=bi.value?bi.value.slice(5):"";saveBirthday(mm||null);toast(mm?("誕生日 "+mm+" を登録しました"):"誕生日を削除しました");renderMain();}}
@@ -881,7 +894,9 @@ function buildSettings(){
  var total=trainedDays().length;
  return '<div class="wn-view-title">設定</div>'
   +'<div class="wn-data-sec"><div class="wn-data-h">プロフィール</div>'
-  +'<p class="wn-data-note">誕生日を登録すると「誕生日トレーニー」の実績が解除できます。</p>'
+  +'<p class="wn-data-note">誕生日を登録すると「誕生日トレーニー」の実績が解除できます。目標体重は分析の体重グラフに目標ラインとして表示されます。</p>'
+  +'<div class="wn-weight-row"><span class="wn-weight-label">ニックネーム</span><input type="text" class="wn-weight-input" id="nickInput" value="'+esc(nickname)+'" placeholder="例: たろう" maxlength="12"><button class="wn-weight-save" data-action="save-nick">保存</button></div>'
+  +'<div class="wn-weight-row"><span class="wn-weight-label">目標体重</span><input type="number" inputmode="decimal" class="wn-weight-input" id="goalInput" value="'+(goalWeight!=null?goalWeight:"")+'" placeholder="例: 65"><span class="wn-unit">kg</span><button class="wn-weight-save" data-action="save-goal">保存</button></div>'
   +'<div class="wn-weight-row"><span class="wn-weight-label">誕生日</span><input type="date" class="wn-weight-input" id="bdayInput" value="'+(birthday?("2000-"+birthday):"")+'"><button class="wn-weight-save" data-action="save-birthday">保存</button></div>'
   +(birthday?'<div class="wn-weight-ok">✓ 登録済み（'+esc(birthday)+'）</div>':'')
   +'</div>'
@@ -1068,7 +1083,7 @@ function buildAnalysis(){
   +'<div class="wn-an-sec"><div class="wn-section-title"><span>体重</span>'+(wLatest!==null?'<span class="wn-an-latest">最新 '+wLatest+'kg</span>':'')+'</div>'
   +'<div class="wn-weight-row" style="margin-bottom:12px"><span class="wn-weight-label">今日</span><input class="wn-weight-input" id="weightInputA" inputmode="decimal" placeholder="--" value="'+esc(getWeight(today)||"")+'"><span class="wn-unit">kg</span><button class="wn-weight-save" data-action="save-weight-a">記録</button></div>'
   +(getWeight(today)?'<div class="wn-weight-ok" style="margin-bottom:10px">✓ 今日 '+esc(getWeight(today))+'kg　'+weightDiffHtml()+'</div>':'')
-  +svgLine(wSeries,"kg")+'</div>'
+  +svgLine(wSeries,"kg",goalWeight)+'</div>'
   +'<div class="wn-an-sec"><div class="wn-section-title"><span>総ボリューム</span>'+(vLatest!==null?'<span class="wn-an-latest">最新 '+vLatest.toLocaleString()+'kg</span>':'')+'</div>'
   +'<p class="wn-data-note">その日の「重量 × 回数 × セット」の合計。頑張った量の推移です。</p>'
   +svgLine(vSeries,"kg")+'</div>';
@@ -1082,6 +1097,11 @@ var quickOn=false,quickSets="",quickReps="";
 function loadQuick(){try{quickOn=localStorage.getItem("workout-quick-on")==="1";quickSets=localStorage.getItem("workout-quick-sets")||"";quickReps=localStorage.getItem("workout-quick-reps")||"";}catch(e){quickOn=false;quickSets="";quickReps="";}}
 function saveQuick(on,sets,reps){quickOn=!!on;quickSets=sets||"";quickReps=reps||"";try{localStorage.setItem("workout-quick-on",on?"1":"0");if(sets)localStorage.setItem("workout-quick-sets",String(sets));else localStorage.removeItem("workout-quick-sets");if(reps)localStorage.setItem("workout-quick-reps",String(reps));else localStorage.removeItem("workout-quick-reps");}catch(e){}}
 function newEntry(){var e={drop:false,weight:"",reps:"",sets:""};if(quickOn){if(quickSets!=="")e.sets=String(quickSets);if(quickReps!=="")e.reps=String(quickReps);}return e;}
+var nickname="",goalWeight=null;
+function loadProfile(){try{nickname=localStorage.getItem("workout-nickname")||"";var g=localStorage.getItem("workout-goal-weight");goalWeight=(g!==null&&g!=="")?num(g):null;}catch(e){nickname="";goalWeight=null;}}
+function saveNickname(v){nickname=(v||"").trim();try{if(nickname)localStorage.setItem("workout-nickname",nickname);else localStorage.removeItem("workout-nickname");}catch(e){}}
+function saveGoalWeight(v){if(v===""||v==null){goalWeight=null;try{localStorage.removeItem("workout-goal-weight");}catch(e){}}else{goalWeight=num(v);try{localStorage.setItem("workout-goal-weight",String(goalWeight));}catch(e){}}}
+function greetWord(){var h=new Date().getHours();return h<5?"こんばんは":h<11?"おはよう":h<18?"こんにちは":"こんばんは";}
 
 var RAR={bronze:{c:"#CD7F32",e:"🥉"},silver:{c:"#C0C7D0",e:"🥈"},gold:{c:"#FFC24B",e:"🥇"},diamond:{c:"#5BD1E6",e:"💎"},legend:{c:"#B583FF",e:"🌈"}};
 function rarE(r){return (RAR[r]||RAR.bronze).e;}
@@ -1349,7 +1369,7 @@ function unlockedIds(){var ctx=computeCtx();return BADGES.filter(function(b){ret
 var badgeSeen=null;
 var BADGE_VER=7;
 function initBadges(){
- loadBirthday();loadQuick();
+ loadBirthday();loadQuick();loadProfile();
  var raw=null,ver=null;
  try{raw=JSON.parse(localStorage.getItem("workout-badges-seen"));ver=localStorage.getItem("workout-badges-ver");}catch(e){}
  if(raw&&Array.isArray(raw)&&ver===String(BADGE_VER))badgeSeen=new Set(raw);
