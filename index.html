@@ -31,6 +31,11 @@ button{cursor:pointer;}
 .wn-title{font-weight:900;font-size:22px;letter-spacing:.02em;}
 .wn-sub{font-family:'Oswald';font-size:11px;letter-spacing:.28em;color:var(--muted);margin-top:2px;}
 .wn-stat{display:flex;flex-direction:column;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 16px;}
+.wn-stat-wrap{display:flex;align-items:center;gap:12px;}
+.wn-bk-btn{background:var(--surface);border:1px solid var(--line);border-radius:12px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--muted);padding:0;}
+.wn-bk-btn svg{width:22px;height:22px;}
+.wn-bk-btn:active{transform:scale(.92);}
+.wn-bk-body{margin-top:16px;}
 .wn-stat-num{font-family:'Oswald';font-weight:700;font-size:30px;line-height:1;}
 .wn-gold{color:var(--gold);}
 .wn-stat-label{font-size:10px;color:var(--muted);margin-top:4px;letter-spacing:.08em;}
@@ -536,7 +541,8 @@ function buildHome(){
  var legend=PARTS.map(function(p){return '<span class="wn-leg"><span class="wn-dot" style="background:'+p.color+'"></span> '+p.key+'</span>';}).join("");
 
  return '<header class="wn-header"><div><div class="wn-title">筋トレノート</div><div class="wn-sub">WORKOUT NOTE</div></div>'
-  +'<div class="wn-stat"><span class="wn-stat-num wn-gold">'+total+'</span><span class="wn-stat-label">累計トレ日数</span></div></header>'
+  +'<div class="wn-stat-wrap"><button class="wn-bk-btn" data-action="open-backup" aria-label="データのバックアップ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg></button>'
+  +'<div class="wn-stat"><span class="wn-stat-num wn-gold">'+total+'</span><span class="wn-stat-label">累計トレ日数</span></div></div></header>'
   +'<section class="wn-card"><div class="wn-cal-head"><button class="wn-nav" data-action="prev">‹</button>'
   +'<div class="wn-month"><span class="wn-year">'+cursor.y+'</span><span class="wn-mon">'+(cursor.m+1)+'月</span></div>'
   +'<button class="wn-nav" data-action="next">›</button></div>'
@@ -609,9 +615,11 @@ $app.addEventListener("click",function(e){
  else if(a==="export-file"){exportFile();}
  else if(a==="copy-json"){copyJson();}
  else if(a==="import-paste"){importPaste();}
+ else if(a==="open-backup"){showBackup();}
  else if(a==="save-birthday"){var bi=document.getElementById("bdayInput");if(bi){var mm=bi.value?bi.value.slice(5):"";saveBirthday(mm||null);toast(mm?("誕生日 "+mm+" を登録しました"):"誕生日を削除しました");renderMain();}}
 });
 $app.addEventListener("change",function(e){if(e.target&&e.target.id==="importFile"){importFromFile(e.target.files[0]);}});
+$ov.addEventListener("change",function(e){if(e.target&&e.target.id==="importFile"){importFromFile(e.target.files[0]);}});
 
 function saveWeightFromInput(id){
  var inp=document.getElementById(id); if(!inp)return;
@@ -747,6 +755,9 @@ $ov.addEventListener("click",function(e){
   if(a==="next-field"){focusNext();return;}
   if(a==="save"){handleSave();return;}
   if(a==="detail-metric"){detailMetric=t.dataset.m;renderDetail();return;}
+  if(a==="export-file"){exportFile();return;}
+  if(a==="copy-json"){copyJson();return;}
+  if(a==="import-paste"){importPaste();return;}
   if(!sheet)return;
   if(a==="open-add"){sheetUI.adding=true;renderContent();}
   else if(a==="cancel-add"){sheetUI.adding=false;sheetUI.pickPart=null;renderContent();}
@@ -860,15 +871,21 @@ function buildBackup(){return {app:"kintore-note",version:1,exportedAt:new Date(
 function buildBackupString(){return JSON.stringify(buildBackup());}
 
 function buildSettings(){
- var json=buildBackupString();
  var total=trainedDays().length;
  return '<div class="wn-view-title">設定</div>'
-  +'<p class="wn-data-note">記録はこの端末のブラウザ内だけに保存されています（現在 '+total+' 日分）。機種変更やデータ消去で消えないよう、ときどき書き出して保管してください。</p>'
   +'<div class="wn-data-sec"><div class="wn-data-h">プロフィール</div>'
   +'<p class="wn-data-note">誕生日を登録すると「誕生日トレーニー」の実績が解除できます。</p>'
   +'<div class="wn-weight-row"><span class="wn-weight-label">誕生日</span><input type="date" class="wn-weight-input" id="bdayInput" value="'+(birthday?("2000-"+birthday):"")+'"><button class="wn-weight-save" data-action="save-birthday">保存</button></div>'
   +(birthday?'<div class="wn-weight-ok">✓ 登録済み（'+esc(birthday)+'）</div>':'')
   +'</div>'
+  +'<p class="wn-data-note">データのバックアップ・取り込みは、ホーム画面右上の <b>データアイコン</b>（累計トレ日数の左）から行えます。</p>';
+}
+function showBackup(){
+ var json=buildBackupString();
+ var total=trainedDays().length;
+ $ov.innerHTML='<div class="wn-fs"><div class="wn-fs-head"><span class="wn-fs-title">データ</span><button class="wn-x" data-action="close">×</button></div>'
+  +'<div class="wn-bk-body">'
+  +'<p class="wn-data-note">記録はこの端末のブラウザ内だけに保存されています（現在 '+total+' 日分）。機種変更やデータ消去で消えないよう、ときどき書き出して保管してください。</p>'
   +'<div class="wn-data-sec"><div class="wn-data-h">書き出し（バックアップ）</div>'
   +'<div class="wn-data-row"><button class="wn-data-act" data-action="export-file">ファイルに保存</button><button class="wn-data-act2" data-action="copy-json">コピー</button></div>'
   +'<textarea class="wn-data-ta" id="exportTa" readonly>'+esc(json)+'</textarea>'
@@ -879,7 +896,8 @@ function buildSettings(){
   +'<p class="wn-data-note" style="margin:10px 0 6px">または、コピーしたテキストを貼り付け:</p>'
   +'<textarea class="wn-data-ta" id="importTa" placeholder="ここにバックアップのテキストを貼り付け"></textarea>'
   +'<button class="wn-data-act wn-data-block" data-action="import-paste">テキストから取り込む</button>'
-  +'<div class="wn-data-hint" id="importHint"></div></div>';
+  +'<div class="wn-data-hint" id="importHint"></div></div>'
+  +'</div></div>';
 }
 
 function exportFile(){
