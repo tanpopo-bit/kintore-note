@@ -1097,7 +1097,7 @@ function computeCtx(){
   ctx.weightUp=Math.max(0,Math.round((mx-firstW)*10)/10);
   ctx.weightDown=Math.max(0,Math.round((firstW-mn)*10)/10);
  }
- var prBest={},prByDate={},trainedSorted=trained.slice().sort();
+ var prBest={},prByDate={},byr={},trainedSorted=trained.slice().sort();
  trainedSorted.forEach(function(d){
   var rec=records[d],dayReps=0,daySets=0,exNames={},partsToday={};
   (rec.exercises||[]).forEach(function(ex){
@@ -1120,10 +1120,10 @@ function computeCtx(){
   if(dayReps>ctx.dayMaxReps)ctx.dayMaxReps=dayReps;
   if(daySets>ctx.dayMaxSets)ctx.dayMaxSets=daySets;
   var nex=Object.keys(exNames).length;if(nex>ctx.dayMaxExercises)ctx.dayMaxExercises=nex;
-  ctx.datesMMDD[d.slice(5)]=1;
+  ctx.datesMMDD[d.slice(5)]=1;if(birthday&&d.slice(5)===birthday)byr[d.slice(0,4)]=1;
   if(rec.savedAt){var hr=new Date(rec.savedAt).getHours();if(hr>=5&&hr<8)ctx.morningCount++;if(hr>=22)ctx.nightCount++;if(hr>=0&&hr<5)ctx.midnightCount++;}
  });
- ctx.totalVol=Math.round(ctx.totalVol);
+ ctx.totalVol=Math.round(ctx.totalVol);ctx.birthdayCount=Object.keys(byr).length;
  ctx.distinctCount=Object.keys(ctx.distinct).length;
  ctx.streakMax=longestStreak(trainedSorted);
  ctx.maxPRweek=maxPRWindow(prByDate,7);
@@ -1200,7 +1200,9 @@ var BADGES=[
  {cat:"セット",group:"総セット数",icon:"sets",rarity:"diamond",name:"総セット5000",val:function(c){return c.totalSets;},need:5000,unit:"sets"},
  {cat:"セット",group:"総セット数",icon:"sets",rarity:"legend",name:"総セット10000",val:function(c){return c.totalSets;},need:10000,unit:"sets"},
  // 特別
- {cat:"特別",icon:"birthday",rarity:"gold",name:"誕生日トレーニー",done:function(c){return !!(birthday&&c.datesMMDD[birthday]);}},
+ {cat:"特別",group:"誕生日トレーニー",icon:"birthday",rarity:"gold",name:"誕生日トレ1年目",val:function(c){return c.birthdayCount;},need:1,unit:"count"},
+ {cat:"特別",group:"誕生日トレーニー",icon:"birthday",rarity:"diamond",name:"誕生日トレ2年目",val:function(c){return c.birthdayCount;},need:2,unit:"count"},
+ {cat:"特別",group:"誕生日トレーニー",icon:"birthday",rarity:"legend",name:"誕生日トレ3年目",val:function(c){return c.birthdayCount;},need:3,unit:"count"},
 ];
 BADGES.forEach(function(b){b.id=b.name;});
 
@@ -1309,7 +1311,7 @@ function openBadgeDetail(id,group){
 
 function unlockedIds(){var ctx=computeCtx();return BADGES.filter(function(b){return badgeOk(b,ctx);}).map(function(b){return b.id;});}
 var badgeSeen=null;
-var BADGE_VER=6;
+var BADGE_VER=7;
 function initBadges(){
  loadBirthday();
  var raw=null,ver=null;
