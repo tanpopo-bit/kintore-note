@@ -45,6 +45,21 @@ button{cursor:pointer;}
 .wn-chart-goal-l{fill:var(--gold);font-size:11px;font-family:'Oswald';opacity:.95;}
 .wn-greet{font-size:15px;color:var(--text);margin:2px 2px 14px;font-weight:600;}
 .wn-greet b{color:var(--gold);}
+.wn-preset-chip.fav{border-color:var(--gold);color:var(--gold);}
+.wn-ob{position:fixed;inset:0;z-index:90;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.wn-ob-card{max-width:540px;margin:0 auto;padding:48px 22px 48px;}
+.wn-ob-step{color:var(--gold);font-family:'Oswald';letter-spacing:.12em;font-size:13px;margin-bottom:10px;}
+.wn-ob-title{font-size:25px;font-weight:800;margin-bottom:8px;line-height:1.3;}
+.wn-ob-sub{color:var(--muted);font-size:14px;line-height:1.65;margin-bottom:18px;}
+.wn-ob-input{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;color:var(--text);font-size:17px;margin-bottom:16px;box-sizing:border-box;}
+.wn-ob-next{width:100%;background:var(--gold);color:#1a1205;border:none;border-radius:12px;padding:16px;font-weight:800;font-size:16px;margin-top:8px;}
+.wn-ob-next:active{transform:scale(.98);}
+.wn-ob-skip{display:block;width:100%;background:none;border:none;color:var(--muted);padding:14px;font-size:13px;margin-top:4px;}
+.wn-ob-part{display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;}
+.wn-ob-chips{display:flex;flex-wrap:wrap;gap:8px;flex:1;}
+.wn-ob-chip{background:var(--surface);border:1px solid var(--line);color:var(--muted);border-radius:18px;padding:8px 14px;font-size:13px;}
+.wn-ob-chip.sel{background:var(--gold);color:#1a1205;border-color:var(--gold);font-weight:700;}
+.wn-ob-custom{margin:8px 0 4px;padding-top:18px;border-top:1px solid var(--line);}
 .wn-stat-num{font-family:'Oswald';font-weight:700;font-size:30px;line-height:1;}
 .wn-gold{color:var(--gold);}
 .wn-stat-label{font-size:10px;color:var(--muted);margin-top:4px;letter-spacing:.08em;}
@@ -754,7 +769,7 @@ function renderContent(){
     +'</div><button class="wn-cancel" data-action="cancel-add">キャンセル</button></div>';
   }else{
    html+='<div class="wn-add"><div class="wn-add-label"><span class="wn-ex-part" style="background:'+PART_COLOR[sheetUI.pickPart]+'">'+sheetUI.pickPart+'</span>の種目</div><div class="wn-preset-chips">'
-    +(PRESETS[sheetUI.pickPart]||[]).map(function(n){return '<button class="wn-preset-chip" data-action="add-ex" data-part="'+sheetUI.pickPart+'" data-name="'+esc(n)+'">'+esc(n)+'</button>';}).join("")
+    +(function(){var fav=favorites[sheetUI.pickPart]||[];var pre=PRESETS[sheetUI.pickPart]||[];var list=fav.concat(pre.filter(function(n){return fav.indexOf(n)<0;}));return list.map(function(n){var isf=fav.indexOf(n)>=0;return '<button class="wn-preset-chip'+(isf?' fav':'')+'" data-action="add-ex" data-part="'+sheetUI.pickPart+'" data-name="'+esc(n)+'">'+(isf?'★ ':'')+esc(n)+'</button>';}).join("");})()
     +'</div><div class="wn-custom-row"><input class="wn-input wn-input-wide" id="customName" placeholder="種目名を自由入力" value="'+esc(sheetUI.custom||"")+'"><button class="wn-add-go" data-action="add-custom">追加</button></div>'
     +'<button class="wn-cancel" data-action="back-part">← 部位選択へ</button></div>';
   }
@@ -778,6 +793,13 @@ $ov.addEventListener("click",function(e){
   if(a==="export-file"){exportFile();return;}
   if(a==="copy-json"){copyJson();return;}
   if(a==="import-paste"){importPaste();return;}
+  if(a==="ob-next"){obCapture();obStep=2;renderOnboard();return;}
+  if(a==="ob-back"){obCapture();obStep=1;renderOnboard();return;}
+  if(a==="ob-toggle-ex"){obCapture();obToggle(t.dataset.part,t.dataset.name);return;}
+  if(a==="ob-custom-part"){obCapture();obCustomPart=t.dataset.part;renderOnboard();return;}
+  if(a==="ob-add-custom"){obCapture();obAddCustom();return;}
+  if(a==="ob-finish"){obCapture();obFinish(false);return;}
+  if(a==="ob-skip"){obFinish(true);return;}
   if(!sheet)return;
   if(a==="open-add"){sheetUI.adding=true;renderContent();}
   else if(a==="cancel-add"){sheetUI.adding=false;sheetUI.pickPart=null;renderContent();}
@@ -1102,6 +1124,46 @@ function loadProfile(){try{nickname=localStorage.getItem("workout-nickname")||""
 function saveNickname(v){nickname=(v||"").trim();try{if(nickname)localStorage.setItem("workout-nickname",nickname);else localStorage.removeItem("workout-nickname");}catch(e){}}
 function saveGoalWeight(v){if(v===""||v==null){goalWeight=null;try{localStorage.removeItem("workout-goal-weight");}catch(e){}}else{goalWeight=num(v);try{localStorage.setItem("workout-goal-weight",String(goalWeight));}catch(e){}}}
 function greetWord(){var h=new Date().getHours();return h<5?"こんばんは":h<11?"おはよう":h<18?"こんにちは":"こんばんは";}
+var favorites={};
+function loadFavorites(){try{favorites=JSON.parse(localStorage.getItem("workout-favorites")||"{}")||{};}catch(e){favorites={};}}
+function saveFavorites(f){favorites=f||{};try{localStorage.setItem("workout-favorites",JSON.stringify(favorites));}catch(e){}}
+/* ===== オンボーディング ===== */
+var obStep=1,obNick="",obFav={},obCustomPart="胸",obCustomName="";
+function obCapture(){var n=document.getElementById("obNick");if(n)obNick=n.value;var c=document.getElementById("obCustom");if(c)obCustomName=c.value;}
+function obToggle(part,name){var arr=obFav[part]||(obFav[part]=[]);var i=arr.indexOf(name);if(i<0)arr.push(name);else arr.splice(i,1);renderOnboard();}
+function obAddCustom(){var nm=(obCustomName||"").trim();if(nm){var arr=obFav[obCustomPart]||(obFav[obCustomPart]=[]);if(arr.indexOf(nm)<0)arr.push(nm);}obCustomName="";renderOnboard();}
+function obFinish(skip){if(!skip){saveNickname(obNick);var clean={};Object.keys(obFav).forEach(function(k){if(obFav[k]&&obFav[k].length)clean[k]=obFav[k];});saveFavorites(clean);}try{localStorage.setItem("workout-onboarded","1");}catch(e){}closeOverlay();renderMain();if(!skip&&nickname)toast("ようこそ、"+nickname+"さん！");}
+function showOnboarding(){obStep=1;obNick=nickname||"";obFav={};Object.keys(favorites).forEach(function(k){obFav[k]=favorites[k].slice();});obCustomPart="胸";obCustomName="";renderOnboard();}
+function renderOnboard(){
+ var h;
+ if(obStep===1){
+  h='<div class="wn-ob-card"><div class="wn-ob-step">STEP 1 / 2</div>'
+   +'<div class="wn-ob-title">筋トレノートへようこそ</div>'
+   +'<p class="wn-ob-sub">まずはニックネームを教えてください。ホームでのあいさつに使います。（あとで設定からも変えられます）</p>'
+   +'<input id="obNick" class="wn-ob-input" type="text" maxlength="12" placeholder="例: たろう" value="'+esc(obNick)+'">'
+   +'<button class="wn-ob-next" data-action="ob-next">次へ</button>'
+   +'<button class="wn-ob-skip" data-action="ob-skip">スキップ（あとで設定できます）</button></div>';
+ }else{
+  var parts=PARTS.map(function(p){
+   var sel=obFav[p.key]||[];
+   var names=(PRESETS[p.key]||[]).slice();
+   sel.forEach(function(n){if(names.indexOf(n)<0)names.push(n);});
+   var chips=names.map(function(n){var on=sel.indexOf(n)>=0;return '<button class="wn-ob-chip'+(on?' sel':'')+'" data-action="ob-toggle-ex" data-part="'+esc(p.key)+'" data-name="'+esc(n)+'">'+esc(n)+'</button>';}).join("");
+   return '<div class="wn-ob-part"><span class="wn-ex-part" style="background:'+p.color+'">'+esc(p.key)+'</span><div class="wn-ob-chips">'+chips+'</div></div>';
+  }).join("");
+  var partSel=PARTS.map(function(p){return '<button class="wn-ob-chip'+(obCustomPart===p.key?' sel':'')+'" data-action="ob-custom-part" data-part="'+esc(p.key)+'">'+esc(p.key)+'</button>';}).join("");
+  h='<div class="wn-ob-card"><div class="wn-ob-step">STEP 2 / 2</div>'
+   +'<div class="wn-ob-title">よく使う種目を選ぼう</div>'
+   +'<p class="wn-ob-sub">選んでおくと、記録するとき上に出てきて選びやすくなります。なくてもOK・あとで自由に変えられます。</p>'
+   +parts
+   +'<div class="wn-ob-custom"><div class="wn-ob-sub" style="margin-bottom:6px">その他（自由入力）：部位を選んで追加</div>'
+   +'<div class="wn-ob-chips" style="margin-bottom:8px">'+partSel+'</div>'
+   +'<div class="wn-custom-row"><input id="obCustom" class="wn-input wn-input-wide" placeholder="種目名を入力" value="'+esc(obCustomName)+'"><button class="wn-add-go" data-action="ob-add-custom">追加</button></div></div>'
+   +'<button class="wn-ob-next" data-action="ob-finish">はじめる</button>'
+   +'<button class="wn-ob-skip" data-action="ob-back">← 戻る</button></div>';
+ }
+ $ov.innerHTML='<div class="wn-ob">'+h+'</div>';
+}
 
 var RAR={bronze:{c:"#CD7F32",e:"🥉"},silver:{c:"#C0C7D0",e:"🥈"},gold:{c:"#FFC24B",e:"🥇"},diamond:{c:"#5BD1E6",e:"💎"},legend:{c:"#B583FF",e:"🌈"}};
 function rarE(r){return (RAR[r]||RAR.bronze).e;}
@@ -1369,7 +1431,7 @@ function unlockedIds(){var ctx=computeCtx();return BADGES.filter(function(b){ret
 var badgeSeen=null;
 var BADGE_VER=7;
 function initBadges(){
- loadBirthday();loadQuick();loadProfile();
+ loadBirthday();loadQuick();loadProfile();loadFavorites();
  var raw=null,ver=null;
  try{raw=JSON.parse(localStorage.getItem("workout-badges-seen"));ver=localStorage.getItem("workout-badges-ver");}catch(e){}
  if(raw&&Array.isArray(raw)&&ver===String(BADGE_VER))badgeSeen=new Set(raw);
@@ -1417,6 +1479,7 @@ $bonus.addEventListener("click",function(e){
 /* ===== 起動 ===== */
 initBadges();
 renderMain();
+try{if(localStorage.getItem("workout-onboarded")!=="1")showOnboarding();}catch(e){}
 </script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("./sw.js").catch(function(){});});}</script>
 </body>
