@@ -647,6 +647,7 @@ $app.addEventListener("click",function(e){
  else if(a==="copy-json"){copyJson();}
  else if(a==="import-paste"){importPaste();}
  else if(a==="open-backup"){showBackup();}
+ else if(a==="open-fav-editor"){showFavEditor();}
  else if(a==="save-nick"){var ni=document.getElementById("nickInput");saveNickname(ni?ni.value:"");renderMain();toast(nickname?("ようこそ、"+nickname+"さん"):"ニックネームを削除しました");}
  else if(a==="save-goal"){var gi=document.getElementById("goalInput");saveGoalWeight(gi?gi.value.trim():"");renderMain();toast(goalWeight!=null?("目標体重 "+goalWeight+"kg を設定しました"):"目標体重を削除しました");}
  else if(a==="toggle-quick"){saveQuick(!quickOn,quickSets,quickReps);renderMain();toast(quickOn?"クイック入力：ON":"クイック入力：OFF");}
@@ -800,6 +801,10 @@ $ov.addEventListener("click",function(e){
   if(a==="ob-add-custom"){obCapture();obAddCustom();return;}
   if(a==="ob-finish"){obCapture();obFinish(false);return;}
   if(a==="ob-skip"){obFinish(true);return;}
+  if(a==="fav-toggle"){favCapture();favToggle(t.dataset.part,t.dataset.name);return;}
+  if(a==="fav-cpart"){favCapture();favCustomPart2=t.dataset.part;renderFavEditor();return;}
+  if(a==="fav-add"){favCapture();favAddCustom();return;}
+  if(a==="fav-save"){favSaveEditor();return;}
   if(!sheet)return;
   if(a==="open-add"){sheetUI.adding=true;renderContent();}
   else if(a==="cancel-add"){sheetUI.adding=false;sheetUI.pickPart=null;renderContent();}
@@ -921,6 +926,11 @@ function buildSettings(){
   +'<div class="wn-weight-row"><span class="wn-weight-label">目標体重</span><input type="number" inputmode="decimal" class="wn-weight-input" id="goalInput" value="'+(goalWeight!=null?goalWeight:"")+'" placeholder="例: 65"><span class="wn-unit">kg</span><button class="wn-weight-save" data-action="save-goal">保存</button></div>'
   +'<div class="wn-weight-row"><span class="wn-weight-label">誕生日</span><input type="date" class="wn-weight-input" id="bdayInput" value="'+(birthday?("2000-"+birthday):"")+'"><button class="wn-weight-save" data-action="save-birthday">保存</button></div>'
   +(birthday?'<div class="wn-weight-ok">✓ 登録済み（'+esc(birthday)+'）</div>':'')
+  +'</div>'
+  +'<div class="wn-data-sec"><div class="wn-data-h">よく使う種目</div>'
+  +'<p class="wn-data-note">記録時に★付きで先頭に表示される種目を、いつでも編集できます。</p>'
+  +'<button class="wn-weight-save wn-data-block" data-action="open-fav-editor">よく使う種目を編集</button>'
+  +(favCount()?'<div class="wn-weight-ok">現在 '+favCount()+' 種目を登録中</div>':'')
   +'</div>'
   +'<div class="wn-data-sec"><div class="wn-data-h">クイック入力（デフォルト値）</div>'
   +'<p class="wn-data-note">オンにすると、新しい入力行にセット数（と回数）が最初から入ります。例えばセット数を3にしておけば、あとは重量と回数だけ入力すれば済みます。</p>'
@@ -1163,6 +1173,31 @@ function renderOnboard(){
    +'<button class="wn-ob-skip" data-action="ob-back">← 戻る</button></div>';
  }
  $ov.innerHTML='<div class="wn-ob">'+h+'</div>';
+}
+/* ===== よく使う種目の編集（設定から） ===== */
+var favEdit={},favCustomPart2="胸",favCustomName2="";
+function favCount(){var n=0;Object.keys(favorites).forEach(function(k){n+=(favorites[k]||[]).length;});return n;}
+function showFavEditor(){favEdit={};Object.keys(favorites).forEach(function(k){favEdit[k]=favorites[k].slice();});favCustomPart2="胸";favCustomName2="";renderFavEditor();}
+function favCapture(){var c=document.getElementById("favCustom");if(c)favCustomName2=c.value;}
+function favToggle(part,name){var arr=favEdit[part]||(favEdit[part]=[]);var i=arr.indexOf(name);if(i<0)arr.push(name);else arr.splice(i,1);renderFavEditor();}
+function favAddCustom(){var nm=(favCustomName2||"").trim();if(nm){var arr=favEdit[favCustomPart2]||(favEdit[favCustomPart2]=[]);if(arr.indexOf(nm)<0)arr.push(nm);}favCustomName2="";renderFavEditor();}
+function favSaveEditor(){var clean={};Object.keys(favEdit).forEach(function(k){if(favEdit[k]&&favEdit[k].length)clean[k]=favEdit[k];});saveFavorites(clean);closeOverlay();renderMain();toast("よく使う種目を保存しました");}
+function renderFavEditor(){
+ var parts=PARTS.map(function(p){
+  var sel=favEdit[p.key]||[];
+  var names=(PRESETS[p.key]||[]).slice();
+  sel.forEach(function(n){if(names.indexOf(n)<0)names.push(n);});
+  var chips=names.map(function(n){var on=sel.indexOf(n)>=0;return '<button class="wn-ob-chip'+(on?' sel':'')+'" data-action="fav-toggle" data-part="'+esc(p.key)+'" data-name="'+esc(n)+'">'+esc(n)+'</button>';}).join("");
+  return '<div class="wn-ob-part"><span class="wn-ex-part" style="background:'+p.color+'">'+esc(p.key)+'</span><div class="wn-ob-chips">'+chips+'</div></div>';
+ }).join("");
+ var partSel=PARTS.map(function(p){return '<button class="wn-ob-chip'+(favCustomPart2===p.key?' sel':'')+'" data-action="fav-cpart" data-part="'+esc(p.key)+'">'+esc(p.key)+'</button>';}).join("");
+ $ov.innerHTML='<div class="wn-fs"><div class="wn-fs-head"><span class="wn-fs-title">よく使う種目</span><button class="wn-x" data-action="close">×</button></div><div class="wn-bk-body">'
+  +'<p class="wn-data-note">タップで選択／解除できます。選んだ種目は記録時に★付きで上に出ます。</p>'
+  +parts
+  +'<div class="wn-ob-custom"><div class="wn-ob-sub" style="margin-bottom:6px">その他（自由入力）：部位を選んで追加</div>'
+  +'<div class="wn-ob-chips" style="margin-bottom:8px">'+partSel+'</div>'
+  +'<div class="wn-custom-row"><input id="favCustom" class="wn-input wn-input-wide" placeholder="種目名を入力" value="'+esc(favCustomName2)+'"><button class="wn-add-go" data-action="fav-add">追加</button></div></div>'
+  +'<button class="wn-ob-next" data-action="fav-save">保存</button></div></div>';
 }
 
 var RAR={bronze:{c:"#CD7F32",e:"🥉"},silver:{c:"#C0C7D0",e:"🥈"},gold:{c:"#FFC24B",e:"🥇"},diamond:{c:"#5BD1E6",e:"💎"},legend:{c:"#B583FF",e:"🌈"}};
