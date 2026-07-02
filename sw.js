@@ -1,5 +1,5 @@
-const CACHE='kintore-cache-v1';
-const SHELL=['./','./index.html','./manifest.webmanifest'];
+const CACHE='kintore-cache-v3';
+const SHELL=['./','./index.html','./manifest.webmanifest','./app.js','./style.css'];
 
 self.addEventListener('install',function(e){
   self.skipWaiting();
@@ -37,6 +37,22 @@ self.addEventListener('fetch',function(e){
     return;
   }
 
+  var isAsset=url.origin===location.origin&&(url.pathname.indexOf('app.js')>-1||url.pathname.indexOf('style.css')>-1);
+  if(isAsset){
+    e.respondWith((async function(){
+      try{
+        var fresh=await fetch(req);
+        var c=await caches.open(CACHE);
+        c.put(req,fresh.clone());
+        return fresh;
+      }catch(err){
+        var cached=await caches.match(req,{ignoreSearch:true});
+        return cached||Response.error();
+      }
+    })());
+    return;
+  }
+
   if(isFont){
     e.respondWith((async function(){
       var cached=await caches.match(req);
@@ -53,6 +69,11 @@ self.addEventListener('fetch',function(e){
 
   e.respondWith((async function(){
     var cached=await caches.match(req);
-    return cached||fetch(req);
+    if(cached)return cached;
+    try{
+      var res=await fetch(req);
+      if(url.origin===location.origin&&res&&res.status===200){var c=await caches.open(CACHE);c.put(req,res.clone());}
+      return res;
+    }catch(err){return cached||Response.error();}
   })());
 });

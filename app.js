@@ -1,0 +1,1165 @@
+"use strict";
+/* ===== データ定義 ===== */
+var PARTS=[
+ {key:"胸",color:"#FF5A4D"},{key:"肩",color:"#FBBF24"},{key:"背中",color:"#4C8DFF"},
+ {key:"二頭",color:"#A78BFA"},{key:"三頭",color:"#F472B6"},{key:"足",color:"#34D399"},{key:"有酸素",color:"#22D3EE"}
+];
+var PART_COLOR={}; PARTS.forEach(function(p){PART_COLOR[p.key]=p.color;});
+var PRESETS={
+ "胸":["ベンチプレス","ダンベルプレス","インクラインプレス","チェストフライ","ディップス"],
+ "肩":["ショルダープレス","サイドレイズ","フロントレイズ","リアレイズ","シュラッグ"],
+ "背中":["デッドリフト","懸垂","ラットプルダウン","ベントオーバーロウ","シーテッドロウ"],
+ "二頭":["バーベルカール","ダンベルカール","ハンマーカール","インクラインカール","コンセントレーション"],
+ "三頭":["プッシュダウン","ライイングEXT","ナローベンチ","キックバック","フレンチプレス"],
+ "足":["スクワット","レッグプレス","レッグエクステンション","レッグカール","カーフレイズ"],
+ "有酸素":["ランニング","バイク","ローイング","ウォーキング"]
+};
+var MESSAGES=["ナイスワークアウト。着実に積み上がってる。","今日も自分に勝ったね。","継続は力。よく来た。","1回のトレが未来の体をつくる。","サボらなかった自分を褒めよう。","ここに来ただけで前進だ。","昨日の自分を一歩こえた。"];
+var MILESTONES={1:"はじめの1日。ここがスタートライン。",7:"7日達成。習慣になりはじめてる。",10:"10日目。もう立派な筋トレ民。",30:"30日。鏡を見るのが楽しみになる頃。",50:"50日。継続が才能を超えていく。",100:"100日達成。完全に生活の一部だ。"};
+var WD=["日","月","火","水","木","金","土"];
+var KEY="workout-note-v1";
+
+/* ===== ユーティリティ ===== */
+function pad(n){return String(n).padStart(2,"0");}
+function ymd(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
+function parseYmd(s){var a=s.split("-").map(Number);return new Date(a[0],a[1]-1,a[2]);}
+function todayStr(){return ymd(new Date());}
+function est1rm(w,r){return r<=1?w:w*(1+r/30);}
+function num(v){var n=Number(v);return isNaN(n)?0:n;}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
+function fmtTime(s){return Math.floor(s/60)+":"+pad(s%60);}
+function dropSeq(steps){return (steps||[]).filter(function(s){return s.weight!==""&&s.reps!=="";}).map(function(s){return s.weight+"×"+s.reps;}).join(" → ");}
+function uid(){return (Date.now().toString(36)+Math.random().toString(36).slice(2,7));}
+
+/* ===== 永続化 ===== */
+function load(){try{var r=localStorage.getItem(KEY);return r?JSON.parse(r):{};}catch(e){return {};}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(records));}catch(e){}}
+
+/* ===== 状態 ===== */
+var records=load();
+var now=new Date();
+var cursor={y:now.getFullYear(),m:now.getMonth()};
+var activeTab=null;
+
+/* ===== 集計 ===== */
+function trainedDays(){return Object.keys(records).filter(function(k){return records[k]&&records[k].exercises&&records[k].exercises.length>0;});}
+function computeBests(){
+ var map={};
+ Object.keys(records).forEach(function(date){
+  (records[date].exercises||[]).forEach(function(ex){
+   var m=map[ex.name]||(map[ex.name]={part:ex.part,max:null,set3:null,drop:null});
+   m.part=ex.part;
+   (ex.entries||[]).forEach(function(en){
+    if(en.drop){
+     var valid=(en.steps||[]).filter(function(s){return num(s.weight)>0&&num(s.reps)>0;});
+     if(!valid.length)return;
+     var top=null; valid.forEach(function(s){var w=num(s.weight);if(!top||w>top.weight)top={weight:w,reps:num(s.reps)};});
+     if(!m.drop||top.weight>m.drop.weight)m.drop={weight:top.weight,reps:top.reps,steps:valid,date:date};
+    }else{
+     var w=num(en.weight),r=num(en.reps),st=num(en.sets);
+     if(w<=0||r<=0||st<=0)return;
+     var c={weight:w,reps:r,sets:st,date:date};
+     if(!m.max||w>m.max.weight||(w===m.max.weight&&r>m.max.reps))m.max=c;
+     if(st>=3&&(!m.set3||w>m.set3.weight||(w===m.set3.weight&&r>m.set3.reps)))m.set3=c;
+    }
+   });
+  });
+ });
+ Object.keys(map).forEach(function(k){var v=map[k];if(!v.max&&!v.set3&&!v.drop)delete map[k];});
+ return map;
+}
+function primary(b){return b.max||b.set3||b.drop;}
+function partsOfDay(date){var ex=(records[date]&&records[date].exercises)||[];var seen=[];ex.forEach(function(e){if(e.part&&seen.indexOf(e.part)<0)seen.push(e.part);});return seen;}
+
+/* 体重 */
+function getWeight(date){return records[date]?records[date].weight:undefined;}
+function setWeight(date,val){
+ val=String(val).trim();
+ var o=records[date]||{};
+ if(val===""){delete o.weight;}else{o.weight=val;}
+ if((!o.exercises||o.exercises.length===0)&&(o.weight===undefined||o.weight==="")){delete records[date];}else{records[date]=o;}
+ save();
+}
+/* その日の総ボリューム（重量×回数×セット の合計） */
+function volume(date){
+ var v=0;
+ ((records[date]&&records[date].exercises)||[]).forEach(function(ex){
+  (ex.entries||[]).forEach(function(en){
+   if(en.drop){(en.steps||[]).forEach(function(s){v+=num(s.weight)*num(s.reps);});}
+   else{v+=num(en.weight)*num(en.reps)*num(en.sets);}
+  });
+ });
+ return v;
+}
+
+/* 前回（今日より前で最も新しい）体重と前回比 */
+function prevWeight(beforeDate){
+ var best=null;
+ Object.keys(records).forEach(function(k){
+  if(k>=beforeDate)return;
+  if(records[k]&&records[k].weight!==undefined&&records[k].weight!==""){if(!best||k>best)best=k;}
+ });
+ return best?{date:best,value:num(records[best].weight)}:null;
+}
+function weightDiffHtml(){
+ var today=todayStr();var cur=getWeight(today);
+ if(cur===undefined||cur==="")return "";
+ var prev=prevWeight(today);
+ if(!prev)return '<span class="wn-diff-none">前回データなし</span>';
+ var diff=Math.round((num(cur)-prev.value)*10)/10;
+ var dt=parseYmd(prev.date);
+ var cls=diff<0?"wn-diff-down":(diff>0?"wn-diff-up":"wn-diff-none");
+ var sign=diff>0?"+":(diff<0?"−":"±");
+ return '前回比 <span class="'+cls+'">'+sign+Math.abs(diff)+'kg</span> <span class="wn-diff-date">('+(dt.getMonth()+1)+'/'+dt.getDate()+'比)</span>';
+}
+function weightDiffText(){
+ var today=todayStr();var cur=getWeight(today);
+ if(cur===undefined||cur==="")return "";
+ var prev=prevWeight(today);if(!prev)return "";
+ var diff=Math.round((num(cur)-prev.value)*10)/10;
+ var sign=diff>0?"+":(diff<0?"−":"±");
+ return "前回比 "+sign+Math.abs(diff)+"kg";
+}
+
+/* 折れ線グラフ（自作SVG・外部読み込みなし） */
+function svgLine(series, unit, goal){
+ if(!series||series.length===0)return '<div class="wn-empty-note">データがありません。</div>';
+ var W=560,H=210,padL=46,padR=16,padT=18,padB=30;
+ var vals=series.map(function(s){return s.value;});
+ var dmin=Math.min.apply(null,vals),dmax=Math.max.apply(null,vals);
+ var lo=dmin,hi=dmax;
+ if(goal!=null){lo=Math.min(lo,goal);hi=Math.max(hi,goal);}
+ if(lo===hi){lo=lo-1;hi=hi+1;}
+ var range=hi-lo; lo=lo-range*0.12; hi=hi+range*0.12; range=hi-lo;
+ var n=series.length;
+ function xAt(i){return n===1?(padL+(W-padL-padR)/2):(padL+(W-padL-padR)*i/(n-1));}
+ function yAt(v){return padT+(H-padT-padB)*(1-(v-lo)/range);}
+ var fmtV=function(v){return (Math.round(v*10)/10);};
+ var g="";
+ // 上下のガイド線（データ最大・最小）
+ [dmax,dmin].forEach(function(v){
+  var y=yAt(v);
+  g+='<line class="wn-chart-grid" x1="'+padL+'" y1="'+y+'" x2="'+(W-padR)+'" y2="'+y+'"></line>';
+  g+='<text class="wn-chart-yl" x="'+(padL-6)+'" y="'+(y+4)+'" text-anchor="end">'+fmtV(v)+'</text>';
+ });
+ // 面
+ var area="M "+xAt(0)+" "+yAt(series[0].value);
+ series.forEach(function(s,i){area+=" L "+xAt(i)+" "+yAt(s.value);});
+ area+=" L "+xAt(n-1)+" "+(H-padB)+" L "+xAt(0)+" "+(H-padB)+" Z";
+ g+='<path class="wn-chart-area" d="'+area+'"></path>';
+ // 線
+ if(n>=2){
+  var pts=series.map(function(s,i){return xAt(i)+","+yAt(s.value);}).join(" ");
+  g+='<polyline class="wn-chart-line" points="'+pts+'"></polyline>';
+ }
+ // 点
+ series.forEach(function(s,i){g+='<circle class="wn-chart-dot" cx="'+xAt(i)+'" cy="'+yAt(s.value)+'" r="3.2"></circle>';});
+ if(goal!=null){
+  var gy=yAt(goal);
+  g+='<line class="wn-chart-goal" x1="'+padL+'" y1="'+gy+'" x2="'+(W-padR)+'" y2="'+gy+'"></line>';
+  g+='<text class="wn-chart-goal-l" x="'+(W-padR)+'" y="'+(gy-5)+'" text-anchor="end">目標 '+fmtV(goal)+'kg</text>';
+ }
+ // x ラベル（最大5個）
+ var step=Math.max(1,Math.ceil(n/5));
+ for(var i=0;i<n;i+=step){g+='<text class="wn-chart-xl" x="'+xAt(i)+'" y="'+(H-padB+18)+'" text-anchor="middle">'+series[i].label+'</text>';}
+ if((n-1)%step!==0)g+='<text class="wn-chart-xl" x="'+xAt(n-1)+'" y="'+(H-padB+18)+'" text-anchor="middle">'+series[n-1].label+'</text>';
+ return '<svg class="wn-chart" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet">'+g+'</svg>';
+}
+
+/* ===== メイン描画 ===== */
+var $app=document.getElementById("app");
+var $ov=document.getElementById("overlay");
+var $bonus=document.getElementById("bonus");
+
+var view="home";
+function renderMain(){
+ var body;
+ if(view==="best")body=buildBest();
+ else if(view==="analysis")body=buildAnalysis();
+ else if(view==="badge")body=buildBadge();
+ else if(view==="settings")body=buildSettings();
+ else body=buildHome();
+ $app.innerHTML=body+buildTabbar();
+}
+
+function buildHome(){
+ var tdays=trainedDays();
+ var total=tdays.length;
+ var monthCount=tdays.filter(function(k){var d=parseYmd(k);return d.getFullYear()===cursor.y&&d.getMonth()===cursor.m;}).length;
+ var today=todayStr();
+ var todayHas=records[today]&&records[today].exercises&&records[today].exercises.length>0;
+
+ var first=new Date(cursor.y,cursor.m,1);
+ var blank=first.getDay();
+ var daysIn=new Date(cursor.y,cursor.m+1,0).getDate();
+ var cells="";
+ for(var i=0;i<blank;i++)cells+='<div class="wn-cell wn-empty"></div>';
+ for(var d=1;d<=daysIn;d++){
+  var dd=new Date(cursor.y,cursor.m,d); var ds=ymd(dd); var parts=partsOfDay(ds);
+  var dots=parts.slice(0,4).map(function(p){return '<span class="wn-dot" style="background:'+PART_COLOR[p]+'"></span>';}).join("");
+  cells+='<button class="wn-cell '+(ds===today?'wn-today ':'')+(parts.length?'wn-done':'')+'" data-action="open-day" data-date="'+ds+'"><span class="wn-date">'+d+'</span><span class="wn-dots">'+dots+'</span></button>';
+ }
+ var legend=PARTS.map(function(p){return '<span class="wn-leg"><span class="wn-dot" style="background:'+p.color+'"></span> '+p.key+'</span>';}).join("");
+
+ return '<header class="wn-header"><div><div class="wn-title">筋トレノート</div><div class="wn-sub">WORKOUT NOTE</div></div>'
+  +'<div class="wn-stat-wrap"><button class="wn-bk-btn" data-action="open-backup" aria-label="データのバックアップ"><span class="wn-bk-ic"></span></button>'
+  +'<div class="wn-stat"><span class="wn-stat-num wn-gold">'+total+'</span><span class="wn-stat-label">累計トレ日数</span></div></div></header>'
+  +(nickname?'<div class="wn-greet">'+greetWord()+'、<b>'+esc(nickname)+'</b>さん</div>':'')
+  +backupReminderHtml()
+  +'<section class="wn-card"><div class="wn-cal-head"><button class="wn-nav" data-action="prev">‹</button>'
+  +'<div class="wn-month"><span class="wn-year">'+cursor.y+'</span><span class="wn-mon">'+(cursor.m+1)+'月</span></div>'
+  +'<button class="wn-nav" data-action="next">›</button></div>'
+  +'<div class="wn-month-count">この月 <b>'+monthCount+'</b> 日トレーニング</div>'
+  +'<div class="wn-week">'+WD.map(function(w,i){return '<div class="wn-wd '+(i===0?'wn-sun':'')+(i===6?'wn-sat':'')+'">'+w+'</div>';}).join("")+'</div>'
+  +'<div class="wn-grid">'+cells+'</div>'
+  +'<div class="wn-legend">'+legend+'</div></section>'
+  +'<button class="wn-today-btn '+(todayHas?'wn-today-btn-done':'')+'" data-action="open-today">'+(todayHas?'今日の記録を見る・編集':'＋ 今日のトレを記録する')+'</button>'
+  +'<section class="wn-card"><div class="wn-weight-row"><span class="wn-weight-label">体重</span>'
+  +'<input class="wn-weight-input" id="weightInput" inputmode="decimal" placeholder="--" value="'+esc(getWeight(today)||"")+'"><span class="wn-unit">kg</span>'
+  +'<button class="wn-weight-save" data-action="save-weight">記録</button></div>'
+  +(getWeight(today)?'<div class="wn-weight-ok">✓ 今日 '+esc(getWeight(today))+'kg　'+weightDiffHtml()+'</div>':'<div class="wn-weight-ok wn-weight-ok-off">今日はまだ未記録</div>')
+  +'</section>';
+}
+
+function buildBest(){
+ var bests=computeBests();
+ var bestEntries=Object.keys(bests).map(function(n){return [n,bests[n]];});
+ var tabParts=PARTS.filter(function(p){return bestEntries.some(function(e){return e[1].part===p.key;});}).map(function(p){return p.key;});
+ var tab=(activeTab&&tabParts.indexOf(activeTab)>=0)?activeTab:tabParts[0];
+ var tabEx=bestEntries.filter(function(e){return e[1].part===tab;}).sort(function(a,b){return primary(b[1]).weight-primary(a[1]).weight;});
+
+ var inner;
+ if(tabParts.length===0){
+  inner='<div class="wn-empty-note">種目を記録するとベストがここに並びます。</div>';
+ }else{
+  var tabs=tabParts.map(function(p){
+   var on=tab===p;
+   var st=on?'background:'+PART_COLOR[p]+';border-color:'+PART_COLOR[p]+';color:#15161b':'border-color:'+PART_COLOR[p]+';color:'+PART_COLOR[p];
+   return '<button class="wn-tab" style="'+st+'" data-action="tab" data-part="'+p+'">'+p+'</button>';
+  }).join("");
+  var list=tabEx.map(function(e){
+   var b=e[1],p=primary(b);
+   return '<button class="wn-best" data-action="open-detail" data-name="'+esc(e[0])+'"><span class="wn-best-bar" style="background:'+(PART_COLOR[b.part]||"#888")+'"></span><span class="wn-best-name">'+esc(e[0])+'</span><span class="wn-best-val"><b>'+p.weight+'</b>kg × '+p.reps+'</span><span class="wn-best-arrow">›</span></button>';
+  }).join("");
+  inner='<div class="wn-tabs">'+tabs+'</div><div class="wn-best-list">'+list+'</div>';
+ }
+ return '<div class="wn-view-title">種目ベスト</div><p class="wn-view-sub">タップで推移と履歴が見られます</p>'+inner;
+}
+
+function navIcon(k){
+ var p={home:'M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10',
+  best:'M7 4h10v3a5 5 0 0 1-10 0zM5 5H3v1a3 3 0 0 0 3 3M19 5h2v1a3 3 0 0 1-3 3M9 14v3h6v-3M8 21h8',
+  analysis:'M4 19V5M4 19h16M8 15l3-4 3 2 4-6',
+  badge:'M12 3l2.5 5.2 5.5.8-4 4 1 5.6L12 16l-5 2.6 1-5.6-4-4 5.5-.8z',
+  settings:'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1'}[k];
+ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="'+p+'"></path></svg>';
+}
+function buildTabbar(){
+ var items=[["home","ホーム"],["best","ベスト"],["analysis","分析"],["badge","実績"],["settings","設定"]];
+ return '<nav class="wn-tabbar">'+items.map(function(it){
+  return '<button class="wn-tabitem '+(view===it[0]?"on":"")+'" data-action="nav" data-view="'+it[0]+'">'+navIcon(it[0])+'<span>'+it[1]+'</span></button>';
+ }).join("")+'</nav>';
+}
+
+/* ===== メイン操作 ===== */
+$app.addEventListener("click",function(e){
+ var t=e.target.closest("[data-action]"); if(!t)return;
+ var a=t.dataset.action;
+ if(a==="nav"){view=t.dataset.view;try{window.scrollTo(0,0);}catch(e){}renderMain();}
+ else if(a==="prev"){var p=new Date(cursor.y,cursor.m-1,1);cursor={y:p.getFullYear(),m:p.getMonth()};renderMain();}
+ else if(a==="next"){var n=new Date(cursor.y,cursor.m+1,1);cursor={y:n.getFullYear(),m:n.getMonth()};renderMain();}
+ else if(a==="tab"){activeTab=t.dataset.part;renderMain();}
+ else if(a==="open-day"){openSheet(t.dataset.date);}
+ else if(a==="open-today"){openSheet(todayStr());}
+ else if(a==="open-detail"){openDetail(t.dataset.name);}
+ else if(a==="badge-detail"){openBadgeDetail(t.dataset.id,t.dataset.group);}
+ else if(a==="save-weight"){saveWeightFromInput("weightInput");}
+ else if(a==="save-weight-a"){saveWeightFromInput("weightInputA");}
+ else if(a==="export-file"){exportFile();}
+ else if(a==="copy-json"){copyJson();}
+ else if(a==="import-paste"){importPaste();}
+ else if(a==="open-backup"){showBackup();}
+ else if(a==="open-fav-editor"){showFavEditor();}
+ else if(a==="save-nick"){var ni=document.getElementById("nickInput");saveNickname(ni?ni.value:"");renderMain();toast(nickname?("ようこそ、"+nickname+"さん"):"ニックネームを削除しました");}
+ else if(a==="save-goal"){var gi=document.getElementById("goalInput");saveGoalWeight(gi?gi.value.trim():"");renderMain();toast(goalWeight!=null?("目標体重 "+goalWeight+"kg を設定しました"):"目標体重を削除しました");}
+ else if(a==="toggle-quick"){saveQuick(!quickOn,quickSets,quickReps);renderMain();toast(quickOn?"クイック入力：ON":"クイック入力：OFF");}
+ else if(a==="save-quick"){var qs=document.getElementById("qSets"),qr=document.getElementById("qReps");saveQuick(quickOn,qs?qs.value.trim():"",qr?qr.value.trim():"");renderMain();toast("デフォルト値を保存しました");}
+ else if(a==="save-birthday"){var bi=document.getElementById("bdayInput");if(bi){var mm=bi.value?bi.value.slice(5):"";saveBirthday(mm||null);toast(mm?("誕生日 "+mm+" を登録しました"):"誕生日を削除しました");renderMain();}}
+});
+$app.addEventListener("change",function(e){if(e.target&&e.target.id==="importFile"){importFromFile(e.target.files[0]);}});
+$ov.addEventListener("change",function(e){if(e.target&&e.target.id==="importFile"){importFromFile(e.target.files[0]);}});
+
+function saveWeightFromInput(id){
+ var inp=document.getElementById(id); if(!inp)return;
+ var v=String(inp.value).trim();
+ setWeight(todayStr(),v);
+ var msg;
+ if(v===""){msg="今日の体重を削除しました";}
+ else{msg="今日の体重 "+v+"kg を記録しました";var dt=weightDiffText();if(dt)msg+="（"+dt+"）";}
+ toast(msg);
+ renderMain();
+}
+var toastTimer=null;
+function toast(msg){
+ var el=document.getElementById("toast");
+ el.textContent=msg;
+ el.classList.add("show");
+ clearTimeout(toastTimer);
+ toastTimer=setTimeout(function(){el.classList.remove("show");},2000);
+}
+
+/* ===== 入力シート ===== */
+var sheet=null;   // {date, exercises:[{_id,part,name,entries:[...]}]}
+var detailName=null, detailMetric="weight"; // 'weight' | '1rm'
+var sheetUI={adding:false,pickPart:null,custom:""};
+
+function cloneEntries(ents){return (ents||[]).map(function(s){return s.drop?{drop:true,setCount:s.setCount||"",steps:(s.steps||[]).map(function(x){return {weight:x.weight,reps:x.reps};})}:{drop:false,weight:s.weight,reps:s.reps,sets:s.sets};});}
+
+function openSheet(date){
+ var ex=(records[date]&&records[date].exercises)||[];
+ sheet={date:date,exercises:ex.map(function(e){return {_id:uid(),part:e.part,name:e.name,entries:cloneEntries(e.entries)};})};
+ sheetUI={adding:ex.length===0,pickPart:null,custom:""};
+ restStop();
+ var d=parseYmd(date);
+ var label=(d.getMonth()+1)+"月"+d.getDate()+"日 ("+WD[d.getDay()]+")";
+ $ov.innerHTML=
+  '<div class="wn-scrim" data-action="close-scrim"><div class="wn-sheet" data-stop="1">'
+  +'<div class="wn-sheet-handle"></div>'
+  +'<div class="wn-sheet-head"><span class="wn-sheet-date">'+label+'</span><button class="wn-x" data-action="close">×</button></div>'
+  +'<div class="wn-sheet-body" id="sheetBody"><div id="restMount"></div><div id="sheetContent"></div></div>'
+  +'<div class="wn-sheet-foot"><button class="wn-next" data-action="next-field" onmousedown="event.preventDefault()">次へ ▶</button><button class="wn-save" data-action="save">保存する</button></div>'
+  +'</div></div>';
+ restRender();
+ renderContent();
+}
+
+function findEx(id){return sheet.exercises.filter(function(e){return e._id===id;})[0];}
+
+function getLast(name){
+ var bestDate=null;
+ Object.keys(records).forEach(function(dt){
+  if(dt===sheet.date)return;
+  if((records[dt].exercises||[]).some(function(e){return e.name===name;})&&(!bestDate||dt>bestDate))bestDate=dt;
+ });
+ if(!bestDate)return null;
+ var ex=(records[bestDate].exercises||[]).filter(function(e){return e.name===name;})[0];
+ var rep=null;
+ (ex.entries||[]).forEach(function(en){
+  if(en.drop){
+   var valid=(en.steps||[]).filter(function(s){return num(s.weight)>0&&num(s.reps)>0;});
+   valid.forEach(function(s){var w=num(s.weight);if(!rep||w>rep.weight)rep={weight:w,reps:num(s.reps),sets:valid.length};});
+  }else{
+   var w=num(en.weight),r=num(en.reps),st=num(en.sets);
+   if(w>0&&r>0&&st>0&&(!rep||w>rep.weight))rep={weight:w,reps:r,sets:st};
+  }
+ });
+ if(!rep)return null; rep.date=bestDate; return rep;
+}
+
+function renderContent(){
+ var c=document.getElementById("sheetContent"); if(!c)return;
+ var bests=computeBests();
+ var html="";
+ if(sheet.exercises.length===0&&!sheetUI.adding) html+='<div class="wn-empty-note">種目を追加して記録しよう。</div>';
+
+ sheet.exercises.forEach(function(e){
+  var b=bests[e.name]; var pb=b&&(b.max||b.set3||b.drop);
+  html+='<div class="wn-ex"><div class="wn-ex-head"><span class="wn-ex-part" style="background:'+(PART_COLOR[e.part]||"#888")+'">'+e.part+'</span><span class="wn-ex-name">'+esc(e.name)+'</span><button class="wn-ex-del" data-action="remove-ex" data-ex="'+e._id+'">削除</button></div>';
+  if(pb)html+='<div class="wn-ex-best">自己ベスト '+pb.weight+'kg × '+pb.reps+'</div>';
+  var last=getLast(e.name);
+  if(last){
+   var nudge=last.reps>=10?(last.weight+2.5):null;
+   html+='<div class="wn-suggest"><span class="wn-suggest-last">前回 '+last.date.slice(5).replace("-","/")+' · '+last.weight+'kg × '+last.reps+' × '+last.sets+'</span><div class="wn-suggest-chips">'
+    +'<button class="wn-suggest-chip" data-action="sug" data-ex="'+e._id+'" data-w="'+last.weight+'" data-r="'+last.reps+'" data-s="'+last.sets+'">前回通り</button>'
+    +(nudge?'<button class="wn-suggest-chip wn-suggest-up" data-action="sug" data-ex="'+e._id+'" data-w="'+nudge+'" data-r="'+last.reps+'" data-s="'+last.sets+'">+2.5kg</button>':'')
+    +'</div></div>';
+  }
+  html+='<div class="wn-entries">';
+  e.entries.forEach(function(s,i){
+   if(s.drop){
+    html+='<div class="wn-entry wn-entry-drop"><div class="wn-entry-top"><button class="wn-drop-toggle wn-drop-on" data-action="toggle-drop" data-ex="'+e._id+'" data-idx="'+i+'">✓ ドロップセット</button><button class="wn-entry-del" data-action="remove-entry" data-ex="'+e._id+'" data-idx="'+i+'">削除</button></div>';
+    html+='<div class="wn-drop-count"><span class="wn-unit">セット数</span><input class="wn-input" inputmode="numeric" placeholder="例3" value="'+esc(s.setCount||"")+'" data-field="setCount" data-ex="'+e._id+'" data-idx="'+i+'"></div>';
+    (s.steps||[]).forEach(function(st,si){
+     html+='<div class="wn-drop-step"><span class="wn-set-no">'+(si+1)+'</span><input class="wn-input" inputmode="decimal" placeholder="重量" value="'+esc(st.weight)+'" data-field="step-weight" data-ex="'+e._id+'" data-idx="'+i+'" data-step="'+si+'"><span class="wn-unit">kg</span><span class="wn-times">×</span><input class="wn-input" inputmode="numeric" placeholder="回" value="'+esc(st.reps)+'" data-field="step-reps" data-ex="'+e._id+'" data-idx="'+i+'" data-step="'+si+'"><span class="wn-unit">回</span></div>';
+    });
+    if(!s.steps||s.steps.length===0)html+='<div class="wn-drop-hint">セット数を入れると、その数だけ入力欄が出ます。</div>';
+    html+='</div>';
+   }else{
+    html+='<div class="wn-entry"><div class="wn-entry-line">'
+     +'<input class="wn-input" inputmode="decimal" placeholder="重量" value="'+esc(s.weight)+'" data-field="weight" data-ex="'+e._id+'" data-idx="'+i+'"><span class="wn-unit">kg</span><span class="wn-times">×</span>'
+     +'<input class="wn-input" inputmode="numeric" placeholder="回" value="'+esc(s.reps)+'" data-field="reps" data-ex="'+e._id+'" data-idx="'+i+'"><span class="wn-unit">回</span><span class="wn-times">×</span>'
+     +'<input class="wn-input" inputmode="numeric" placeholder="ｾｯﾄ" value="'+esc(s.sets)+'" data-field="sets" data-ex="'+e._id+'" data-idx="'+i+'"><span class="wn-unit">ｾｯﾄ</span></div>'
+     +'<div class="wn-entry-line2"><button class="wn-drop-toggle" data-action="toggle-drop" data-ex="'+e._id+'" data-idx="'+i+'">ドロップセット</button><button class="wn-entry-del" data-action="remove-entry" data-ex="'+e._id+'" data-idx="'+i+'">削除</button></div></div>';
+   }
+  });
+  html+='</div><button class="wn-addset" data-action="add-entry" data-ex="'+e._id+'">＋ 記録を追加</button></div>';
+ });
+
+ if(sheetUI.adding){
+  if(!sheetUI.pickPart){
+   html+='<div class="wn-add"><div class="wn-add-label">部位を選ぶ</div><div class="wn-part-chips">'
+    +PARTS.map(function(p){return '<button class="wn-part-chip" style="border-color:'+p.color+';color:'+p.color+'" data-action="pick-part" data-part="'+p.key+'">'+p.key+'</button>';}).join("")
+    +'</div><button class="wn-cancel" data-action="cancel-add">キャンセル</button></div>';
+  }else{
+   html+='<div class="wn-add"><div class="wn-add-label"><span class="wn-ex-part" style="background:'+PART_COLOR[sheetUI.pickPart]+'">'+sheetUI.pickPart+'</span>の種目</div><div class="wn-preset-chips">'
+    +(function(){var fav=favorites[sheetUI.pickPart]||[];var pre=PRESETS[sheetUI.pickPart]||[];var list=fav.concat(pre.filter(function(n){return fav.indexOf(n)<0;}));return list.map(function(n){var isf=fav.indexOf(n)>=0;return '<button class="wn-preset-chip'+(isf?' fav':'')+'" data-action="add-ex" data-part="'+sheetUI.pickPart+'" data-name="'+esc(n)+'">'+(isf?'★ ':'')+esc(n)+'</button>';}).join("");})()
+    +'</div><div class="wn-custom-row"><input class="wn-input wn-input-wide" id="customName" placeholder="種目名を自由入力" value="'+esc(sheetUI.custom||"")+'"><button class="wn-add-go" data-action="add-custom">追加</button></div>'
+    +'<button class="wn-cancel" data-action="back-part">← 部位選択へ</button></div>';
+  }
+ }else{
+  html+='<button class="wn-add-open" data-action="open-add">＋ 種目を追加</button>';
+ }
+ c.innerHTML=html;
+}
+
+/* シート内クリック */
+$ov.addEventListener("click",function(e){
+ var sc=e.target.closest("[data-action='close-scrim']");
+ var t=e.target.closest("[data-action]");
+ if(t){
+  var a=t.dataset.action;
+  if(a==="close-scrim"){ if(e.target===t) closeOverlay(); return; }
+  if(a==="close"){closeOverlay();return;}
+  if(a==="next-field"){focusNext();return;}
+  if(a==="save"){handleSave();return;}
+  if(a==="detail-metric"){detailMetric=t.dataset.m;renderDetail();return;}
+  if(a==="export-file"){exportFile();return;}
+  if(a==="copy-json"){copyJson();return;}
+  if(a==="import-paste"){importPaste();return;}
+  if(a==="ob-next"){obCapture();obStep=2;renderOnboard();return;}
+  if(a==="ob-toggle-ex"){var op=t.dataset.part,on=t.dataset.name,oa=obFav[op]||(obFav[op]=[]),oi=oa.indexOf(on);if(oi<0){oa.push(on);t.classList.add("sel");}else{oa.splice(oi,1);t.classList.remove("sel");}return;}
+  if(a==="ob-back"){obCapture();obStep=1;renderOnboard();return;}
+  if(a==="ob-custom-part"){obCapture();obCustomPart=t.dataset.part;renderOnboard();return;}
+  if(a==="ob-add-custom"){obCapture();obAddCustom();return;}
+  if(a==="ob-finish"){obCapture();obFinish(false);return;}
+  if(a==="ob-skip"){obFinish(true);return;}
+  if(a==="fav-toggle"){var fp=t.dataset.part,fn=t.dataset.name,fa=favEdit[fp]||(favEdit[fp]=[]),fi=fa.indexOf(fn);if(fi<0){fa.push(fn);t.classList.add("sel");}else{fa.splice(fi,1);t.classList.remove("sel");}return;}
+  if(a==="fav-cpart"){favCapture();favCustomPart2=t.dataset.part;renderFavEditor();return;}
+  if(a==="fav-add"){favCapture();favAddCustom();return;}
+  if(a==="fav-save"){favSaveEditor();return;}
+  if(!sheet)return;
+  if(a==="open-add"){sheetUI.adding=true;renderContent();}
+  else if(a==="cancel-add"){sheetUI.adding=false;sheetUI.pickPart=null;renderContent();}
+  else if(a==="pick-part"){sheetUI.pickPart=t.dataset.part;renderContent();}
+  else if(a==="back-part"){sheetUI.pickPart=null;renderContent();}
+  else if(a==="add-ex"){addExercise(t.dataset.part,t.dataset.name);}
+  else if(a==="add-custom"){addExercise(sheetUI.pickPart,sheetUI.custom);}
+  else if(a==="remove-ex"){sheet.exercises=sheet.exercises.filter(function(x){return x._id!==t.dataset.ex;});renderContent();}
+  else if(a==="add-entry"){findEx(t.dataset.ex).entries.push(newEntry());renderContent();}
+  else if(a==="remove-entry"){var ex=findEx(t.dataset.ex);ex.entries.splice(+t.dataset.idx,1);renderContent();}
+  else if(a==="toggle-drop"){toggleDrop(t.dataset.ex,+t.dataset.idx);}
+  else if(a==="sug"){applySug(t.dataset.ex,{weight:+t.dataset.w,reps:+t.dataset.r,sets:+t.dataset.s});}
+  else if(a==="rest-start"){restStart(+t.dataset.sec);}
+  else if(a==="rest-add"){restAdd(30);}
+  else if(a==="rest-stop"){restStop();}
+  else if(a==="rest-ok"){rest.done=false;restRender();}
+ }
+});
+
+/* シート内入力（再描画なしで反映、setCountのみ再描画） */
+$ov.addEventListener("input",function(e){
+ var el=e.target; var f=el.dataset&&el.dataset.field;
+ if(el.id==="customName"){sheetUI.custom=el.value;return;}
+ if(!f||!sheet)return;
+ var ex=findEx(el.dataset.ex); if(!ex)return;
+ var idx=+el.dataset.idx; var en=ex.entries[idx]; if(!en)return;
+ if(f==="weight"||f==="reps"||f==="sets"){en[f]=el.value;}
+ else if(f==="step-weight"){en.steps[+el.dataset.step].weight=el.value;}
+ else if(f==="step-reps"){en.steps[+el.dataset.step].reps=el.value;}
+ else if(f==="setCount"){
+  en.setCount=el.value;
+  var n=parseInt(el.value,10);
+  var steps=en.steps||[];
+  if(el.value==="")en.steps=[];
+  else if(isNaN(n)||n<1)en.steps=steps;
+  else{var arr=[];for(var k=0;k<Math.min(n,20);k++)arr.push(steps[k]||{weight:"",reps:""});en.steps=arr;}
+  renderContent();
+  var again=document.querySelector('input[data-field="setCount"][data-ex="'+el.dataset.ex+'"][data-idx="'+idx+'"]');
+  if(again){again.focus();var v=again.value;again.value="";again.value=v;}
+ }
+});
+
+function addExercise(part,name){
+ if(!name||!name.trim())return;
+ sheet.exercises.push({_id:uid(),part:part,name:name.trim(),entries:[newEntry()]});
+ sheetUI.adding=false;sheetUI.pickPart=null;sheetUI.custom="";
+ renderContent();
+}
+function toggleDrop(id,idx){
+ var ex=findEx(id);var en=ex.entries[idx];
+ ex.entries[idx]=en.drop?newEntry():{drop:true,setCount:"",steps:[]};
+ renderContent();
+}
+function applySug(id,sug){
+ var ex=findEx(id);
+ var val={drop:false,weight:String(sug.weight),reps:String(sug.reps),sets:String(sug.sets)};
+ var done=false;
+ for(var i=0;i<ex.entries.length;i++){var e=ex.entries[i];if(!e.drop&&e.weight===""&&e.reps===""&&e.sets===""){ex.entries[i]=val;done=true;break;}}
+ if(!done)ex.entries.push(val);
+ renderContent();
+}
+function focusNext(){
+ var c=document.getElementById("sheetContent");if(!c)return;
+ var inputs=Array.prototype.slice.call(c.querySelectorAll("input"));
+ var cur=(document.activeElement&&document.activeElement.tagName==="INPUT")?document.activeElement:null;
+ var idx=inputs.indexOf(cur);
+ var next=inputs[idx+1]||(idx===-1?inputs[0]:null);
+ if(next){next.focus();if(next.select)next.select();}
+}
+$ov.addEventListener("keydown",function(e){
+ if(e.key==="Enter"&&e.target.tagName==="INPUT"&&e.target.id!=="customName"){e.preventDefault();focusNext();}
+});
+
+function handleSave(){
+ var cleaned=sheet.exercises.map(function(e){
+  var entries=e.entries.map(function(s){
+   if(s.drop)return {drop:true,setCount:s.setCount||"",steps:(s.steps||[]).filter(function(x){return x.weight!==""&&x.reps!=="";})};
+   return s;
+  }).filter(function(s){return s.drop?s.steps.length>0:(s.weight!==""&&s.reps!==""&&s.sets!=="");});
+  return {part:e.part,name:e.name,entries:entries};
+ }).filter(function(e){return e.entries.length>0;});
+
+ var date=sheet.date;
+ var hadWorkoutBefore=!!(records[date]&&records[date].exercises&&records[date].exercises.length>0);
+ if(cleaned.length===0){
+  var o0=records[date]||{}; delete o0.exercises;
+  if(o0.weight===undefined||o0.weight==="")delete records[date]; else records[date]=o0;
+ }else{
+  var o1=records[date]||{}; o1.exercises=cleaned; o1.savedAt=new Date().toISOString(); records[date]=o1;
+ }
+ save();
+ var newly=checkNewBadges();
+ var isToday=date===todayStr()&&cleaned.length>0;
+ var firstLogToday=isToday&&!hadWorkoutBefore;
+ var newTotal=trainedDays().length;
+ closeOverlay();
+ renderMain();
+ if(firstLogToday){
+  var msg=MILESTONES[newTotal]||MESSAGES[Math.floor(Math.random()*MESSAGES.length)];
+  pendingBadges=newly.length?newly:null;
+  showBonus(newTotal,msg);
+ }else if(newly.length){
+  showBadgeUnlock(newly);
+ }
+}
+
+function closeOverlay(){restStop();$ov.innerHTML="";sheet=null;}
+
+/* ===== データのバックアップ / 復元 ===== */
+function buildBackup(){return {app:"kintore-note",version:1,exportedAt:new Date().toISOString(),records:records,birthday:birthday};}
+function buildBackupString(){return JSON.stringify(buildBackup());}
+
+function buildSettings(){
+ var total=trainedDays().length;
+ return '<div class="wn-view-title">設定</div>'
+  +'<div class="wn-data-sec"><div class="wn-data-h">プロフィール</div>'
+  +'<p class="wn-data-note">誕生日を登録すると「誕生日トレーニー」の実績が解除できます。目標体重は分析の体重グラフに目標ラインとして表示されます。</p>'
+  +'<div class="wn-weight-row"><span class="wn-weight-label">ニックネーム</span><input type="text" class="wn-weight-input" id="nickInput" value="'+esc(nickname)+'" placeholder="例: たろう" maxlength="12"><button class="wn-weight-save" data-action="save-nick">保存</button></div>'
+  +'<div class="wn-weight-row"><span class="wn-weight-label">目標体重</span><input type="number" inputmode="decimal" class="wn-weight-input" id="goalInput" value="'+(goalWeight!=null?goalWeight:"")+'" placeholder="例: 65"><span class="wn-unit">kg</span><button class="wn-weight-save" data-action="save-goal">保存</button></div>'
+  +'<div class="wn-weight-row"><span class="wn-weight-label">誕生日</span><input type="date" class="wn-weight-input" id="bdayInput" value="'+(birthday?("2000-"+birthday):"")+'"><button class="wn-weight-save" data-action="save-birthday">保存</button></div>'
+  +(birthday?'<div class="wn-weight-ok">✓ 登録済み（'+esc(birthday)+'）</div>':'')
+  +'</div>'
+  +'<div class="wn-data-sec"><div class="wn-data-h">よく使う種目</div>'
+  +'<p class="wn-data-note">記録時に★付きで先頭に表示される種目を、いつでも編集できます。</p>'
+  +'<button class="wn-weight-save wn-data-block" data-action="open-fav-editor">よく使う種目を編集</button>'
+  +(favCount()?'<div class="wn-weight-ok">現在 '+favCount()+' 種目を登録中</div>':'')
+  +'</div>'
+  +'<div class="wn-data-sec"><div class="wn-data-h">クイック入力（デフォルト値）</div>'
+  +'<p class="wn-data-note">オンにすると、新しい入力行にセット数（と回数）が最初から入ります。例えばセット数を3にしておけば、あとは重量と回数だけ入力すれば済みます。</p>'
+  +'<div class="wn-tgl-row"><span>この機能を使う</span><button class="wn-tgl '+(quickOn?'on':'')+'" data-action="toggle-quick">'+(quickOn?'ON':'OFF')+'</button></div>'
+  +'<div class="wn-weight-row"><span class="wn-weight-label">セット数</span><input type="number" inputmode="numeric" class="wn-weight-input" id="qSets" value="'+esc(quickSets)+'" placeholder="例: 3"></div>'
+  +'<div class="wn-weight-row"><span class="wn-weight-label">回数（任意）</span><input type="number" inputmode="numeric" class="wn-weight-input" id="qReps" value="'+esc(quickReps)+'" placeholder="空欄でOK"></div>'
+  +'<button class="wn-weight-save wn-data-block" data-action="save-quick" style="margin-top:4px">保存</button>'
+  +'</div>'
+  +'<p class="wn-data-note">データのバックアップ・取り込みは、ホーム画面右上の <b>データアイコン</b>（累計トレ日数の左）から行えます。</p>';
+}
+function showBackup(){
+ var json=buildBackupString();
+ var total=trainedDays().length;
+ $ov.innerHTML='<div class="wn-fs"><div class="wn-fs-head"><span class="wn-fs-title">データ</span><button class="wn-x" data-action="close">×</button></div>'
+  +'<div class="wn-bk-body">'
+  +'<p class="wn-data-note">記録はこの端末のブラウザ内だけに保存されています（現在 '+total+' 日分）。機種変更やデータ消去で消えないよう、ときどき書き出して保管してください。'+(function(){var a=backupAgeDays();return a===null?"":a===0?" 最終バックアップ: 今日":" 最終バックアップ: "+a+"日前";})()+'</p>'
+  +'<div class="wn-data-sec"><div class="wn-data-h">書き出し（バックアップ）</div>'
+  +'<div class="wn-data-row"><button class="wn-data-act" data-action="export-file">ファイルに保存</button><button class="wn-data-act2" data-action="copy-json">コピー</button></div>'
+  +'<textarea class="wn-data-ta" id="exportTa" readonly>'+esc(json)+'</textarea>'
+  +'<div class="wn-data-hint" id="copyHint"></div></div>'
+  +'<div class="wn-data-sec"><div class="wn-data-h">取り込み（復元）</div>'
+  +'<p class="wn-data-note">バックアップの内容を取り込みます。同じ日付の記録は上書きされます。</p>'
+  +'<label class="wn-data-act2 wn-data-block">ファイルから読み込み<input type="file" id="importFile" accept="application/json,.json" hidden></label>'
+  +'<p class="wn-data-note" style="margin:10px 0 6px">または、コピーしたテキストを貼り付け:</p>'
+  +'<textarea class="wn-data-ta" id="importTa" placeholder="ここにバックアップのテキストを貼り付け"></textarea>'
+  +'<button class="wn-data-act wn-data-block" data-action="import-paste">テキストから取り込む</button>'
+  +'<div class="wn-data-hint" id="importHint"></div></div>'
+  +'</div></div>';
+}
+
+function exportFile(){
+ try{
+  var blob=new Blob([buildBackupString()],{type:"application/json"});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement("a");
+  a.href=url;a.download="kintore-backup-"+todayStr()+".json";
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},1500);
+  markBackedUp();
+  var h=document.getElementById("copyHint");if(h)h.textContent="保存しました。iPhoneは「ファイル」アプリ等に保存されます。";
+ }catch(e){var h2=document.getElementById("copyHint");if(h2)h2.textContent="保存できませんでした。代わりに「コピー」を使ってください。";}
+}
+function copyJson(){
+ var txt=buildBackupString();
+ var h=document.getElementById("copyHint");
+ function ok(){markBackedUp();if(h)h.textContent="コピーしました。メモやメールに貼り付けて保管できます。";}
+ function ng(){if(h)h.textContent="自動コピーできませんでした。上の枠を長押しして手動でコピーしてください。";}
+ if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(ok,ng);}
+ else{var ta=document.getElementById("exportTa");if(ta){ta.focus();ta.select();try{document.execCommand("copy")?ok():ng();}catch(e){ng();}}else ng();}
+}
+function importFromFile(file){
+ if(!file)return;
+ var reader=new FileReader();
+ reader.onload=function(){applyImport(reader.result,"importHint");};
+ reader.onerror=function(){var h=document.getElementById("importHint");if(h)h.textContent="ファイルを読み込めませんでした。";};
+ reader.readAsText(file);
+}
+function importPaste(){var ta=document.getElementById("importTa");applyImport(ta?ta.value:"","importHint");}
+function applyImport(text,hintId){
+ var h=document.getElementById(hintId);
+ var obj;
+ try{obj=JSON.parse(text);}catch(e){if(h)h.textContent="データの形式が正しくありません。";return;}
+ var rec=(obj&&obj.records)?obj.records:obj;
+ if(!rec||typeof rec!=="object"||Array.isArray(rec)){if(h)h.textContent="バックアップデータが見つかりません。";return;}
+ var keys=Object.keys(rec).filter(function(k){return /^\d{4}-\d{2}-\d{2}$/.test(k)&&rec[k]&&(rec[k].exercises||rec[k].weight!==undefined);});
+ if(keys.length===0){if(h)h.textContent="有効な記録が含まれていません。";return;}
+ if(!confirm("バックアップから "+keys.length+" 日分を取り込みます。同じ日付は上書きされます。よろしいですか？"))return;
+ keys.forEach(function(k){records[k]=rec[k];});
+ if(obj&&typeof obj.birthday==="string"&&/^\d{2}-\d{2}$/.test(obj.birthday))saveBirthday(obj.birthday);
+ save();
+ if(h)h.textContent=keys.length+" 日分を取り込みました。画面に反映されています。";
+ renderMain();
+}
+
+/* ===== 休憩タイマー ===== */
+var rest={total:0,remaining:0,running:false,done:false,endTs:0,interval:null,ctx:null};
+function ensureAudio(){try{if(!rest.ctx)rest.ctx=new (window.AudioContext||window.webkitAudioContext)();if(rest.ctx.state==="suspended")rest.ctx.resume();}catch(e){}}
+function beep(){var ctx=rest.ctx;if(!ctx)return;try{for(var i=0;i<3;i++){var o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.type="sine";o.frequency.value=880;var t=ctx.currentTime+i*0.28;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.25,t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+0.2);o.start(t);o.stop(t+0.22);}}catch(e){}}
+function restRender(){
+ var m=document.getElementById("restMount");if(!m)return;
+ if(rest.running){
+  var pct=rest.total?Math.max(0,rest.remaining/rest.total*100):0;
+  m.innerHTML='<div class="wn-rest"><div class="wn-rest-bar"><div class="wn-rest-fill" id="restFill" style="width:'+pct+'%"></div></div><div class="wn-rest-row"><span class="wn-rest-time" id="restTime">'+fmtTime(rest.remaining)+'</span><div class="wn-rest-ctrl"><button class="wn-rest-btn" data-action="rest-add">+30秒</button><button class="wn-rest-btn" data-action="rest-stop">停止</button></div></div></div>';
+ }else if(rest.done){
+  m.innerHTML='<div class="wn-rest wn-rest-done"><div class="wn-rest-row"><span class="wn-rest-time wn-gold">休憩おわり！</span><button class="wn-rest-btn" data-action="rest-ok">OK</button></div></div>';
+ }else{
+  m.innerHTML='<div class="wn-rest"><div class="wn-rest-row"><span class="wn-rest-label">休憩タイマー</span><div class="wn-rest-presets">'
+   +[60,90,120,180].map(function(s){return '<button class="wn-rest-btn" data-action="rest-start" data-sec="'+s+'">'+fmtTime(s)+'</button>';}).join("")
+   +'</div></div></div>';
+ }
+}
+function restTick(){
+ var rem=Math.ceil((rest.endTs-Date.now())/1000);
+ if(rem<=0){rest.remaining=0;rest.running=false;rest.done=true;clearInterval(rest.interval);beep();if(navigator.vibrate)navigator.vibrate([200,100,200]);restRender();}
+ else{rest.remaining=rem;var t=document.getElementById("restTime");if(t)t.textContent=fmtTime(rem);var f=document.getElementById("restFill");if(f)f.style.width=(rem/rest.total*100)+"%";}
+}
+function restStart(sec){ensureAudio();rest.total=sec;rest.remaining=sec;rest.done=false;rest.running=true;rest.endTs=Date.now()+sec*1000;clearInterval(rest.interval);rest.interval=setInterval(restTick,250);restRender();}
+function restAdd(sec){rest.endTs+=sec*1000;rest.remaining+=sec;rest.total+=sec;if(!rest.running){rest.running=true;rest.done=false;clearInterval(rest.interval);rest.interval=setInterval(restTick,250);}restRender();}
+function restStop(){rest.running=false;rest.done=false;rest.remaining=0;rest.total=0;clearInterval(rest.interval);restRender();}
+
+/* ===== 種目詳細 ===== */
+function openDetail(name){detailName=name;detailMetric="weight";renderDetail();}
+function renderDetail(){
+ var name=detailName;
+ var bests=computeBests(); var best=bests[name];
+ var rows=[];
+ var byDate={}; // date -> best metric for graph
+ Object.keys(records).forEach(function(date){
+  (records[date].exercises||[]).forEach(function(ex){
+   if(ex.name!==name)return;
+   (ex.entries||[]).forEach(function(en){
+    if(en.drop){
+     var valid=(en.steps||[]).filter(function(s){return num(s.weight)>0&&num(s.reps)>0;});
+     if(!valid.length)return;
+     var top=valid[0];valid.forEach(function(s){if(num(s.weight)>num(top.weight))top=s;});
+     rows.push({date:date,drop:true,steps:valid,weight:num(top.weight),reps:num(top.reps)});
+     valid.forEach(function(s){accDate(byDate,date,num(s.weight),num(s.reps));});
+    }else{
+     var w=num(en.weight),r=num(en.reps),st=num(en.sets);
+     if(w<=0||r<=0||st<=0)return;
+     rows.push({date:date,drop:false,weight:w,reps:r,sets:st});
+     accDate(byDate,date,w,r);
+    }
+   });
+  });
+ });
+ rows.sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:b.weight-a.weight;});
+
+ // グラフ用シリーズ（古い順）
+ var dates=Object.keys(byDate).sort();
+ var series=dates.map(function(d){
+  var o=byDate[d];var dt=parseYmd(d);
+  var v=detailMetric==="1rm"?Math.round(est1rm(o.weight,o.reps)):o.weight;
+  return {label:(dt.getMonth()+1)+"/"+dt.getDate(),value:v};
+ });
+ var chart=svgLine(series,"kg");
+ var toggle='<div class="wn-metric"><button class="wn-metric-btn '+(detailMetric==="weight"?"wn-metric-on":"")+'" data-action="detail-metric" data-m="weight">最高重量</button>'
+  +'<button class="wn-metric-btn '+(detailMetric==="1rm"?"wn-metric-on":"")+'" data-action="detail-metric" data-m="1rm">推定1RM</button></div>';
+
+ var cats=[];
+ if(best&&best.max)cats.push({tag:"最高重量",rec:best.max});
+ if(best&&best.set3)cats.push({tag:"3セット以上の最高",rec:best.set3,sets:true});
+ if(best&&best.drop)cats.push({tag:"ドロップセット最高",rec:best.drop,drop:true});
+
+ function isRec(h){
+  return (!h.drop&&best&&best.max&&h.date===best.max.date&&h.weight===best.max.weight&&h.reps===best.max.reps)
+   ||(h.drop&&best&&best.drop&&h.date===best.drop.date&&h.weight===best.drop.weight);
+ }
+ var catHtml=cats.map(function(c){
+  return '<div class="wn-pr-card"><div class="wn-pr-tag">'+c.tag+'</div><div class="wn-pr-main"><span class="wn-pr-num">'+c.rec.weight+'</span><span class="wn-pr-unit">kg</span><span class="wn-pr-x">× '+c.rec.reps+'回'+(c.sets?(' × '+c.rec.sets+'ｾｯﾄ'):'')+'</span></div>'+(c.drop?'<div class="wn-pr-seq">'+dropSeq(c.rec.steps)+'</div>':'')+'<div class="wn-pr-sub">推定1RM '+Math.round(est1rm(c.rec.weight,c.rec.reps))+'kg ・ '+c.rec.date+'</div></div>';
+ }).join("");
+ var histHtml;
+ if(rows.length===0)histHtml='<div class="wn-empty-note">まだ履歴がありません。</div>';
+ else histHtml='<div class="wn-hist">'+rows.map(function(h){
+  var dt=parseYmd(h.date);
+  var val=h.drop?dropSeq(h.steps):('<b>'+h.weight+'</b>kg × '+h.reps+' × '+h.sets+'ｾｯﾄ');
+  return '<div class="wn-hist-row '+(isRec(h)?'wn-hist-best':'')+'"><span class="wn-hist-date">'+(dt.getMonth()+1)+'/'+dt.getDate()+'</span><span class="wn-hist-val">'+val+'</span>'+(h.drop?'<span class="wn-hist-drop">ﾄﾞﾛｯﾌﾟ</span>':'')+(isRec(h)?'<span class="wn-hist-tag">PR</span>':'')+'</div>';
+ }).join("")+'</div>';
+
+ var partTag=(best?'<span class="wn-ex-part" style="background:'+(PART_COLOR[best.part]||"#888")+'">'+best.part+'</span>':'');
+ $ov.innerHTML='<div class="wn-scrim" data-action="close-scrim"><div class="wn-sheet"><div class="wn-sheet-handle"></div>'
+  +'<div class="wn-sheet-head"><span class="wn-sheet-date">'+partTag+esc(name)+'</span><button class="wn-x" data-action="close">×</button></div>'
+  +'<div class="wn-sheet-body"><div class="wn-pr-cats">'+catHtml+'</div>'
+  +'<div class="wn-section-title"><span>推移</span></div>'+toggle+chart
+  +'<div class="wn-section-title"><span>履歴</span></div>'+histHtml+'</div></div></div>';
+}
+function accDate(byDate,date,w,r){
+ var cur=byDate[date];
+ if(!cur||w>cur.weight||(w===cur.weight&&r>cur.reps))byDate[date]={weight:w,reps:r};
+}
+
+/* ===== 分析（体重・総ボリューム）ビュー ===== */
+function buildAnalysis(){
+ var today=todayStr();
+ var wDates=Object.keys(records).filter(function(k){return records[k]&&records[k].weight!==undefined&&records[k].weight!=="";}).sort();
+ var wSeries=wDates.map(function(d){var dt=parseYmd(d);return {label:(dt.getMonth()+1)+"/"+dt.getDate(),value:num(records[d].weight)};});
+ var wLatest=wSeries.length?wSeries[wSeries.length-1].value:null;
+ var vDates=trainedDays().sort();
+ var vSeries=vDates.map(function(d){var dt=parseYmd(d);return {label:(dt.getMonth()+1)+"/"+dt.getDate(),value:Math.round(volume(d))};});
+ var vLatest=vSeries.length?vSeries[vSeries.length-1].value:null;
+
+ return '<div class="wn-view-title">分析・成長グラフ</div>'
+  +'<div class="wn-an-sec"><div class="wn-section-title"><span>体重</span>'+(wLatest!==null?'<span class="wn-an-latest">最新 '+wLatest+'kg</span>':'')+'</div>'
+  +'<div class="wn-weight-row" style="margin-bottom:12px"><span class="wn-weight-label">今日</span><input class="wn-weight-input" id="weightInputA" inputmode="decimal" placeholder="--" value="'+esc(getWeight(today)||"")+'"><span class="wn-unit">kg</span><button class="wn-weight-save" data-action="save-weight-a">記録</button></div>'
+  +(getWeight(today)?'<div class="wn-weight-ok" style="margin-bottom:10px">✓ 今日 '+esc(getWeight(today))+'kg　'+weightDiffHtml()+'</div>':'')
+  +svgLine(wSeries,"kg",goalWeight)+'</div>'
+  +'<div class="wn-an-sec"><div class="wn-section-title"><span>総ボリューム</span>'+(vLatest!==null?'<span class="wn-an-latest">最新 '+vLatest.toLocaleString()+'kg</span>':'')+'</div>'
+  +'<p class="wn-data-note">その日の「重量 × 回数 × セット」の合計。頑張った量の推移です。</p>'
+  +svgLine(vSeries,"kg")+'</div>';
+}
+
+/* ===== 実績バッジ ===== */
+var birthday=null;
+function loadBirthday(){try{birthday=localStorage.getItem("workout-birthday")||null;}catch(e){birthday=null;}}
+function saveBirthday(v){birthday=v||null;try{if(v)localStorage.setItem("workout-birthday",v);else localStorage.removeItem("workout-birthday");}catch(e){}}
+var quickOn=false,quickSets="",quickReps="";
+function loadQuick(){try{quickOn=localStorage.getItem("workout-quick-on")==="1";quickSets=localStorage.getItem("workout-quick-sets")||"";quickReps=localStorage.getItem("workout-quick-reps")||"";}catch(e){quickOn=false;quickSets="";quickReps="";}}
+function saveQuick(on,sets,reps){quickOn=!!on;quickSets=sets||"";quickReps=reps||"";try{localStorage.setItem("workout-quick-on",on?"1":"0");if(sets)localStorage.setItem("workout-quick-sets",String(sets));else localStorage.removeItem("workout-quick-sets");if(reps)localStorage.setItem("workout-quick-reps",String(reps));else localStorage.removeItem("workout-quick-reps");}catch(e){}}
+function newEntry(){var e={drop:false,weight:"",reps:"",sets:""};if(quickOn){if(quickSets!=="")e.sets=String(quickSets);if(quickReps!=="")e.reps=String(quickReps);}return e;}
+var nickname="",goalWeight=null;
+function loadProfile(){try{nickname=localStorage.getItem("workout-nickname")||"";var g=localStorage.getItem("workout-goal-weight");goalWeight=(g!==null&&g!=="")?num(g):null;}catch(e){nickname="";goalWeight=null;}}
+function saveNickname(v){nickname=(v||"").trim();try{if(nickname)localStorage.setItem("workout-nickname",nickname);else localStorage.removeItem("workout-nickname");}catch(e){}}
+function saveGoalWeight(v){if(v===""||v==null){goalWeight=null;try{localStorage.removeItem("workout-goal-weight");}catch(e){}}else{goalWeight=num(v);try{localStorage.setItem("workout-goal-weight",String(goalWeight));}catch(e){}}}
+function greetWord(){var h=new Date().getHours();return h<5?"こんばんは":h<11?"おはよう":h<18?"こんにちは":"こんばんは";}
+function markBackedUp(){try{localStorage.setItem("workout-last-backup",new Date().toISOString());}catch(e){}}
+function backupAgeDays(){var t=null;try{t=localStorage.getItem("workout-last-backup");}catch(e){}if(!t)return null;var ms=Date.now()-new Date(t).getTime();return Math.floor(ms/86400000);}
+function backupReminderHtml(){
+ if(trainedDays().length<3)return "";
+ var age=backupAgeDays();
+ var msg=null;
+ if(age===null)msg="バックアップがまだ一度もありません。";
+ else if(age>=30)msg="最後のバックアップから"+age+"日たちました。";
+ if(!msg)return "";
+ return '<button class="wn-bk-remind" data-action="open-backup"><span>⚠ '+msg+'</span><span class="wn-bk-remind-go">今すぐ書き出す →</span></button>';
+}
+var favorites={};
+function loadFavorites(){try{favorites=JSON.parse(localStorage.getItem("workout-favorites")||"{}")||{};}catch(e){favorites={};}}
+function saveFavorites(f){favorites=f||{};try{localStorage.setItem("workout-favorites",JSON.stringify(favorites));}catch(e){}}
+/* ===== オンボーディング ===== */
+var obStep=1,obNick="",obFav={},obCustomPart="胸",obCustomName="";
+function obCapture(){var n=document.getElementById("obNick");if(n)obNick=n.value;var c=document.getElementById("obCustom");if(c)obCustomName=c.value;}
+function obToggle(part,name){var arr=obFav[part]||(obFav[part]=[]);var i=arr.indexOf(name);if(i<0)arr.push(name);else arr.splice(i,1);renderOnboard();}
+function obAddCustom(){var nm=(obCustomName||"").trim();if(nm){var arr=obFav[obCustomPart]||(obFav[obCustomPart]=[]);if(arr.indexOf(nm)<0)arr.push(nm);}obCustomName="";renderOnboard();}
+function obFinish(skip){if(!skip){saveNickname(obNick);var clean={};Object.keys(obFav).forEach(function(k){if(obFav[k]&&obFav[k].length)clean[k]=obFav[k];});saveFavorites(clean);}try{localStorage.setItem("workout-onboarded","1");}catch(e){}closeOverlay();renderMain();if(!skip&&nickname)toast("ようこそ、"+nickname+"さん！");}
+function showOnboarding(){obStep=1;obNick=nickname||"";obFav={};Object.keys(favorites).forEach(function(k){obFav[k]=favorites[k].slice();});obCustomPart="胸";obCustomName="";renderOnboard();}
+function renderOnboard(){
+ var h;
+ if(obStep===1){
+  h='<div class="wn-ob-card"><div class="wn-ob-step">STEP 1 / 2</div>'
+   +'<div class="wn-ob-title">筋トレノートへようこそ</div>'
+   +'<p class="wn-ob-sub">まずはニックネームを教えてください。ホームでのあいさつに使います。（あとで設定からも変えられます）</p>'
+   +'<input id="obNick" class="wn-ob-input" type="text" maxlength="12" placeholder="例: たろう" value="'+esc(obNick)+'">'
+   +'<button class="wn-ob-next" data-action="ob-next">次へ</button>'
+   +'<button class="wn-ob-skip" data-action="ob-skip">スキップ（あとで設定できます）</button></div>';
+ }else{
+  var parts=PARTS.map(function(p){
+   var sel=obFav[p.key]||[];
+   var names=(PRESETS[p.key]||[]).slice();
+   sel.forEach(function(n){if(names.indexOf(n)<0)names.push(n);});
+   var chips=names.map(function(n){var on=sel.indexOf(n)>=0;return '<button class="wn-ob-chip'+(on?' sel':'')+'" data-action="ob-toggle-ex" data-part="'+esc(p.key)+'" data-name="'+esc(n)+'">'+esc(n)+'</button>';}).join("");
+   return '<div class="wn-ob-part"><span class="wn-ex-part" style="background:'+p.color+'">'+esc(p.key)+'</span><div class="wn-ob-chips">'+chips+'</div></div>';
+  }).join("");
+  var partSel=PARTS.map(function(p){return '<button class="wn-ob-chip'+(obCustomPart===p.key?' sel':'')+'" data-action="ob-custom-part" data-part="'+esc(p.key)+'">'+esc(p.key)+'</button>';}).join("");
+  h='<div class="wn-ob-card"><div class="wn-ob-step">STEP 2 / 2</div>'
+   +'<div class="wn-ob-title">よく使う種目を選ぼう</div>'
+   +'<p class="wn-ob-sub">選んでおくと、記録するとき上に出てきて選びやすくなります。なくてもOK・あとで自由に変えられます。</p>'
+   +parts
+   +'<div class="wn-ob-custom"><div class="wn-ob-sub" style="margin-bottom:6px">その他（自由入力）：部位を選んで追加</div>'
+   +'<div class="wn-ob-chips" style="margin-bottom:8px">'+partSel+'</div>'
+   +'<div class="wn-custom-row"><input id="obCustom" class="wn-input wn-input-wide" placeholder="種目名を入力" value="'+esc(obCustomName)+'"><button class="wn-add-go" data-action="ob-add-custom">追加</button></div></div>'
+   +'<button class="wn-ob-next" data-action="ob-finish">はじめる</button>'
+   +'<button class="wn-ob-skip" data-action="ob-back">← 戻る</button></div>';
+ }
+ var _obsc=$ov.querySelector(".wn-ob");var _obst=_obsc?_obsc.scrollTop:0;
+ $ov.innerHTML='<div class="wn-ob">'+h+'</div>';
+ var _obsc2=$ov.querySelector(".wn-ob");if(_obsc2)_obsc2.scrollTop=_obst;
+}
+/* ===== よく使う種目の編集（設定から） ===== */
+var favEdit={},favCustomPart2="胸",favCustomName2="";
+function favCount(){var n=0;Object.keys(favorites).forEach(function(k){n+=(favorites[k]||[]).length;});return n;}
+function showFavEditor(){favEdit={};Object.keys(favorites).forEach(function(k){favEdit[k]=favorites[k].slice();});favCustomPart2="胸";favCustomName2="";renderFavEditor();}
+function favCapture(){var c=document.getElementById("favCustom");if(c)favCustomName2=c.value;}
+function favToggle(part,name){var arr=favEdit[part]||(favEdit[part]=[]);var i=arr.indexOf(name);if(i<0)arr.push(name);else arr.splice(i,1);renderFavEditor();}
+function favAddCustom(){var nm=(favCustomName2||"").trim();if(nm){var arr=favEdit[favCustomPart2]||(favEdit[favCustomPart2]=[]);if(arr.indexOf(nm)<0)arr.push(nm);}favCustomName2="";renderFavEditor();}
+function favSaveEditor(){var clean={};Object.keys(favEdit).forEach(function(k){if(favEdit[k]&&favEdit[k].length)clean[k]=favEdit[k];});saveFavorites(clean);closeOverlay();renderMain();toast("よく使う種目を保存しました");}
+function renderFavEditor(){
+ var parts=PARTS.map(function(p){
+  var sel=favEdit[p.key]||[];
+  var names=(PRESETS[p.key]||[]).slice();
+  sel.forEach(function(n){if(names.indexOf(n)<0)names.push(n);});
+  var chips=names.map(function(n){var on=sel.indexOf(n)>=0;return '<button class="wn-ob-chip'+(on?' sel':'')+'" data-action="fav-toggle" data-part="'+esc(p.key)+'" data-name="'+esc(n)+'">'+esc(n)+'</button>';}).join("");
+  return '<div class="wn-ob-part"><span class="wn-ex-part" style="background:'+p.color+'">'+esc(p.key)+'</span><div class="wn-ob-chips">'+chips+'</div></div>';
+ }).join("");
+ var partSel=PARTS.map(function(p){return '<button class="wn-ob-chip'+(favCustomPart2===p.key?' sel':'')+'" data-action="fav-cpart" data-part="'+esc(p.key)+'">'+esc(p.key)+'</button>';}).join("");
+ var _fvsc=$ov.querySelector(".wn-fs");var _fvst=_fvsc?_fvsc.scrollTop:0;
+ $ov.innerHTML='<div class="wn-fs"><div class="wn-fs-head"><span class="wn-fs-title">よく使う種目</span><button class="wn-x" data-action="close">×</button></div><div class="wn-bk-body">'
+  +'<p class="wn-data-note">タップで選択／解除できます。選んだ種目は記録時に★付きで上に出ます。</p>'
+  +parts
+  +'<div class="wn-ob-custom"><div class="wn-ob-sub" style="margin-bottom:6px">その他（自由入力）：部位を選んで追加</div>'
+  +'<div class="wn-ob-chips" style="margin-bottom:8px">'+partSel+'</div>'
+  +'<div class="wn-custom-row"><input id="favCustom" class="wn-input wn-input-wide" placeholder="種目名を入力" value="'+esc(favCustomName2)+'"><button class="wn-add-go" data-action="fav-add">追加</button></div></div>'
+  +'<button class="wn-ob-next" data-action="fav-save">保存</button></div></div>';
+ var _fvsc2=$ov.querySelector(".wn-fs");if(_fvsc2)_fvsc2.scrollTop=_fvst;
+}
+
+var RAR={bronze:{c:"#CD7F32",e:"🥉"},silver:{c:"#C0C7D0",e:"🥈"},gold:{c:"#FFC24B",e:"🥇"},diamond:{c:"#5BD1E6",e:"💎"},legend:{c:"#B583FF",e:"🌈"}};
+function rarE(r){return (RAR[r]||RAR.bronze).e;}
+function rarC(r){return (RAR[r]||RAR.bronze).c;}
+var ICONS={
+ db:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/></svg>',
+ login:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 23c-4 0-7-2.8-7-7 0-3 1.8-5 3-7 .4 2 1.6 3 2.6 3 .9 0 1.4-1 1.2-2.6C12 5 14 7 14 9c.7-.8 1-2 1-3 2 1.8 4 4 4 8 0 4.2-3 7-7 7z"/></svg>',
+ chest:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7c2.5-2 5-2 8 .5 3-2.5 5.5-2.5 8-.5"/><path d="M4 7c0 6 3 9 8 10 5-1 8-4 8-10"/><path d="M12 17.5V8"/></svg>',
+ back:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14l-2.2 11c-.5 2.6-2.1 4-4.8 5.4C9.3 19 7.7 17.6 7.2 15z"/><path d="M12 4v16"/><path d="M7.8 11h8.4"/></svg>',
+ shoulder:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16c0-5 4-8 9-8"/><path d="M22 16c0-5-4-8-9-8"/><circle cx="12" cy="6.5" r="3"/></svg>',
+ leg:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2.5c-3.3 0-5.5 2.4-5.5 5.6 0 1.8.8 3 1.4 4-.6 1.2-1.5 2-1.5 3.9 0 3.1 2.2 3.7 2.2 6.5h3.3c0-2.8-1.3-3.6-1.3-5.5 0-1.2.9-1.8 1.7-2.5 1.7-1.6 2.5-3.5 2.5-5.6 0-3.7-1.7-6.9-2.5-6.9z"/></svg>',
+ arm:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-5a4 4 0 0 1 4-4h3"/><path d="M11 12c3.5 0 5.5-2.2 5.5-5.5"/><path d="M16.5 6.5C19 6.5 20 8.5 20 11c0 4.5-3.5 8-9 8"/><path d="M4 21h4"/></svg>',
+ bench:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M5 3.5v5M19 3.5v5"/><path d="M4 13h16"/><path d="M7 13v6M17 13v6"/></svg>',
+ squat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16"/><path d="M6 3v4M18 3v4"/><circle cx="12" cy="10" r="1.6"/><path d="M12 11.5v3l-2 6M12 14.5l2 6"/><path d="M8.5 14.5h7"/></svg>',
+ deadlift:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4" r="1.6"/><path d="M12 5.5v5"/><path d="M8 8.5l4 2 4-2"/><path d="M4 18h16"/><path d="M6 15.5v5M18 15.5v5"/></svg>',
+ tons:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="7" ry="2.5"/><path d="M5 6v4.5c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6"/><path d="M5 10.5V15c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-4.5"/></svg>',
+ sets:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 6H20M9.5 12H20M9.5 18H20"/><path d="M4 5.3l1.4 1.4L8 4M4 11.3l1.4 1.4L8 10M4 17.3l1.4 1.4L8 16"/></svg>'
+};
+function badgeSvg(icon,rarity){return (ICONS[icon]||ICONS.db).replace("<svg ",'<svg style="color:'+rarC(rarity)+'" ');}
+var MUTEDC="#4b515c";
+function iconHTML(icon,color){return '<span class="wn-ic" style="background-color:'+color+';-webkit-mask-image:url('+icon+'.png);mask-image:url('+icon+'.png);"></span>';}
+
+function longestStreak(sorted){
+ var best=0,cur=0,prev=null;
+ sorted.forEach(function(d){
+  if(prev){var diff=Math.round((parseYmd(d)-parseYmd(prev))/86400000);cur=diff===1?cur+1:1;}else cur=1;
+  if(cur>best)best=cur;prev=d;
+ });
+ return best;
+}
+function maxPRWindow(prByDate,win){
+ var ds=Object.keys(prByDate).sort(),best=0;
+ for(var i=0;i<ds.length;i++){var end=parseYmd(ds[i]),sum=0;
+  for(var j=0;j<=i;j++){var diff=Math.round((end-parseYmd(ds[j]))/86400000);if(diff>=0&&diff<win)sum+=prByDate[ds[j]];}
+  if(sum>best)best=sum;}
+ return best;
+}
+function computeCtx(){
+ var dates=Object.keys(records).sort();
+ var trained=dates.filter(function(d){return records[d].exercises&&records[d].exercises.length>0;});
+ var ctx={days:trained.length,totalSets:0,totalReps:0,totalVol:0,dayMaxReps:0,dayMaxSets:0,dayMaxExercises:0,
+  distinct:{},perPartReps:{},perPartDays:{},weightLogCount:0,morningCount:0,nightCount:0,midnightCount:0,
+  datesMMDD:{},streakMax:0,prCount:0,maxPRday:0,maxPRweek:0,maxW:{},weightUp:0,weightDown:0,legNext:false};
+ var weightDates=dates.filter(function(d){return records[d].weight!==undefined&&records[d].weight!=="";});
+ ctx.weightLogCount=weightDates.length;
+ if(weightDates.length){
+  var firstW=num(records[weightDates[0]].weight),mn=Infinity,mx=-Infinity;
+  weightDates.forEach(function(d){var w=num(records[d].weight);if(w<mn)mn=w;if(w>mx)mx=w;});
+  ctx.weightUp=Math.max(0,Math.round((mx-firstW)*10)/10);
+  ctx.weightDown=Math.max(0,Math.round((firstW-mn)*10)/10);
+ }
+ var prBest={},prByDate={},byr={},trainedSorted=trained.slice().sort();
+ trainedSorted.forEach(function(d){
+  var rec=records[d],dayReps=0,daySets=0,exNames={},partsToday={};
+  (rec.exercises||[]).forEach(function(ex){
+   exNames[ex.name]=1;ctx.distinct[ex.name]=1;partsToday[ex.part]=1;var part=ex.part;
+   (ex.entries||[]).forEach(function(en){
+    if(en.drop){(en.steps||[]).forEach(function(s){var w=num(s.weight),r=num(s.reps);
+      if(w>0&&r>0){daySets+=1;dayReps+=r;ctx.totalSets+=1;ctx.totalReps+=r;ctx.totalVol+=w*r;
+       ctx.perPartReps[part]=(ctx.perPartReps[part]||0)+r;if(w>(ctx.maxW[ex.name]||0))ctx.maxW[ex.name]=w;}});}
+    else{var w=num(en.weight),r=num(en.reps),st=num(en.sets);
+     if(w>0&&r>0&&st>0){daySets+=st;dayReps+=r*st;ctx.totalSets+=st;ctx.totalReps+=r*st;ctx.totalVol+=w*r*st;
+      ctx.perPartReps[part]=(ctx.perPartReps[part]||0)+r*st;if(w>(ctx.maxW[ex.name]||0))ctx.maxW[ex.name]=w;}}
+   });
+  });
+  var prToday=0;
+  (rec.exercises||[]).forEach(function(ex){var tmax=0;
+   (ex.entries||[]).forEach(function(en){if(en.drop){(en.steps||[]).forEach(function(s){if(num(s.weight)>tmax)tmax=num(s.weight);});}else if(num(en.weight)>tmax)tmax=num(en.weight);});
+   if(tmax>0&&tmax>(prBest[ex.name]||0)){prBest[ex.name]=tmax;ctx.prCount++;prToday++;}});
+  prByDate[d]=prToday;if(prToday>ctx.maxPRday)ctx.maxPRday=prToday;
+  Object.keys(partsToday).forEach(function(p){ctx.perPartDays[p]=(ctx.perPartDays[p]||0)+1;});
+  if(dayReps>ctx.dayMaxReps)ctx.dayMaxReps=dayReps;
+  if(daySets>ctx.dayMaxSets)ctx.dayMaxSets=daySets;
+  var nex=Object.keys(exNames).length;if(nex>ctx.dayMaxExercises)ctx.dayMaxExercises=nex;
+  ctx.datesMMDD[d.slice(5)]=1;if(birthday&&d.slice(5)===birthday)byr[d.slice(0,4)]=1;
+  if(rec.savedAt){var hr=new Date(rec.savedAt).getHours();if(hr>=5&&hr<8)ctx.morningCount++;if(hr>=22)ctx.nightCount++;if(hr>=0&&hr<5)ctx.midnightCount++;}
+ });
+ ctx.totalVol=Math.round(ctx.totalVol);ctx.birthdayCount=Object.keys(byr).length;
+ ctx.distinctCount=Object.keys(ctx.distinct).length;
+ ctx.streakMax=longestStreak(trainedSorted);
+ ctx.maxPRweek=maxPRWindow(prByDate,7);
+ ctx.legNext=trainedSorted.some(function(d){var rec=records[d];
+  if(!(rec.exercises||[]).some(function(ex){return ex.part==="足";}))return false;
+  var nd=ymd(new Date(parseYmd(d).getTime()+86400000));return records[nd]&&records[nd].exercises&&records[nd].exercises.length>0;});
+ ctx.perPartReps["腕"]=(ctx.perPartReps["二頭"]||0)+(ctx.perPartReps["三頭"]||0);
+ ctx.perPartDays["腕"]=Math.max(ctx.perPartDays["二頭"]||0,ctx.perPartDays["三頭"]||0);
+ return ctx;
+}
+
+function pr(ctx,k){return ctx.perPartReps[k]||0;}
+function pd(ctx,k){return ctx.perPartDays[k]||0;}
+function V(metric,need,unit){return {val:function(c){return c[metric];},need:need,unit:unit};}
+var BADGES=[
+ // 累計ログイン
+ {cat:"ログイン",group:"累計ログイン",icon:"login",rarity:"bronze",name:"累計ログイン1日",val:function(c){return c.days;},need:1,unit:"days"},
+ {cat:"ログイン",group:"累計ログイン",icon:"login",rarity:"silver",name:"累計ログイン7日",val:function(c){return c.days;},need:7,unit:"days"},
+ {cat:"ログイン",group:"累計ログイン",icon:"login",rarity:"gold",name:"累計ログイン30日",val:function(c){return c.days;},need:30,unit:"days"},
+ {cat:"ログイン",group:"累計ログイン",icon:"login",rarity:"diamond",name:"累計ログイン100日",val:function(c){return c.days;},need:100,unit:"days"},
+ {cat:"ログイン",group:"累計ログイン",icon:"login",rarity:"legend",name:"累計ログイン365日",val:function(c){return c.days;},need:365,unit:"days"},
+ // 部位の日
+ {cat:"部位",group:"胸の日",icon:"chest",rarity:"bronze",name:"胸の日1",val:function(c){return pd(c,"胸");},need:1,unit:"days"},
+ {cat:"部位",group:"胸の日",icon:"chest",rarity:"silver",name:"胸の日10",val:function(c){return pd(c,"胸");},need:10,unit:"days"},
+ {cat:"部位",group:"胸の日",icon:"chest",rarity:"gold",name:"胸の日30",val:function(c){return pd(c,"胸");},need:30,unit:"days"},
+ {cat:"部位",group:"胸の日",icon:"chest",rarity:"diamond",name:"胸の日60",val:function(c){return pd(c,"胸");},need:60,unit:"days"},
+ {cat:"部位",group:"胸の日",icon:"chest",rarity:"legend",name:"胸の日100",val:function(c){return pd(c,"胸");},need:100,unit:"days"},
+ {cat:"部位",group:"背中の日",icon:"back",rarity:"bronze",name:"背中の日1",val:function(c){return pd(c,"背中");},need:1,unit:"days"},
+ {cat:"部位",group:"背中の日",icon:"back",rarity:"silver",name:"背中の日10",val:function(c){return pd(c,"背中");},need:10,unit:"days"},
+ {cat:"部位",group:"背中の日",icon:"back",rarity:"gold",name:"背中の日30",val:function(c){return pd(c,"背中");},need:30,unit:"days"},
+ {cat:"部位",group:"背中の日",icon:"back",rarity:"diamond",name:"背中の日60",val:function(c){return pd(c,"背中");},need:60,unit:"days"},
+ {cat:"部位",group:"背中の日",icon:"back",rarity:"legend",name:"背中の日100",val:function(c){return pd(c,"背中");},need:100,unit:"days"},
+ {cat:"部位",group:"肩の日",icon:"shoulder",rarity:"bronze",name:"肩の日1",val:function(c){return pd(c,"肩");},need:1,unit:"days"},
+ {cat:"部位",group:"肩の日",icon:"shoulder",rarity:"silver",name:"肩の日10",val:function(c){return pd(c,"肩");},need:10,unit:"days"},
+ {cat:"部位",group:"肩の日",icon:"shoulder",rarity:"gold",name:"肩の日30",val:function(c){return pd(c,"肩");},need:30,unit:"days"},
+ {cat:"部位",group:"肩の日",icon:"shoulder",rarity:"diamond",name:"肩の日60",val:function(c){return pd(c,"肩");},need:60,unit:"days"},
+ {cat:"部位",group:"肩の日",icon:"shoulder",rarity:"legend",name:"肩の日100",val:function(c){return pd(c,"肩");},need:100,unit:"days"},
+ {cat:"部位",group:"脚の日",icon:"leg",rarity:"bronze",name:"脚の日1",val:function(c){return pd(c,"足");},need:1,unit:"days"},
+ {cat:"部位",group:"脚の日",icon:"leg",rarity:"silver",name:"脚の日10",val:function(c){return pd(c,"足");},need:10,unit:"days"},
+ {cat:"部位",group:"脚の日",icon:"leg",rarity:"gold",name:"脚の日30",val:function(c){return pd(c,"足");},need:30,unit:"days"},
+ {cat:"部位",group:"脚の日",icon:"leg",rarity:"diamond",name:"脚の日60",val:function(c){return pd(c,"足");},need:60,unit:"days"},
+ {cat:"部位",group:"脚の日",icon:"leg",rarity:"legend",name:"脚の日100",val:function(c){return pd(c,"足");},need:100,unit:"days"},
+ {cat:"部位",group:"腕の日",icon:"arm",rarity:"bronze",name:"腕の日1",val:function(c){return pd(c,"腕");},need:1,unit:"days"},
+ {cat:"部位",group:"腕の日",icon:"arm",rarity:"silver",name:"腕の日10",val:function(c){return pd(c,"腕");},need:10,unit:"days"},
+ {cat:"部位",group:"腕の日",icon:"arm",rarity:"gold",name:"腕の日30",val:function(c){return pd(c,"腕");},need:30,unit:"days"},
+ {cat:"部位",group:"腕の日",icon:"arm",rarity:"diamond",name:"腕の日60",val:function(c){return pd(c,"腕");},need:60,unit:"days"},
+ {cat:"部位",group:"腕の日",icon:"arm",rarity:"legend",name:"腕の日100",val:function(c){return pd(c,"腕");},need:100,unit:"days"},
+ // BIG3
+ {cat:"BIG3",group:"ベンチプレス",icon:"bench",rarity:"bronze",name:"ベンチプレス40kg",val:function(c){return c.maxW["ベンチプレス"]||0;},need:40,unit:"kg"},
+ {cat:"BIG3",group:"ベンチプレス",icon:"bench",rarity:"silver",name:"ベンチプレス60kg",val:function(c){return c.maxW["ベンチプレス"]||0;},need:60,unit:"kg"},
+ {cat:"BIG3",group:"ベンチプレス",icon:"bench",rarity:"gold",name:"ベンチプレス80kg",val:function(c){return c.maxW["ベンチプレス"]||0;},need:80,unit:"kg"},
+ {cat:"BIG3",group:"ベンチプレス",icon:"bench",rarity:"diamond",name:"ベンチプレス100kg",val:function(c){return c.maxW["ベンチプレス"]||0;},need:100,unit:"kg"},
+ {cat:"BIG3",group:"ベンチプレス",icon:"bench",rarity:"legend",name:"ベンチプレス120kg",val:function(c){return c.maxW["ベンチプレス"]||0;},need:120,unit:"kg"},
+ {cat:"BIG3",group:"スクワット",icon:"squat",rarity:"bronze",name:"スクワット50kg",val:function(c){return c.maxW["スクワット"]||0;},need:50,unit:"kg"},
+ {cat:"BIG3",group:"スクワット",icon:"squat",rarity:"silver",name:"スクワット80kg",val:function(c){return c.maxW["スクワット"]||0;},need:80,unit:"kg"},
+ {cat:"BIG3",group:"スクワット",icon:"squat",rarity:"gold",name:"スクワット110kg",val:function(c){return c.maxW["スクワット"]||0;},need:110,unit:"kg"},
+ {cat:"BIG3",group:"スクワット",icon:"squat",rarity:"diamond",name:"スクワット140kg",val:function(c){return c.maxW["スクワット"]||0;},need:140,unit:"kg"},
+ {cat:"BIG3",group:"スクワット",icon:"squat",rarity:"legend",name:"スクワット180kg",val:function(c){return c.maxW["スクワット"]||0;},need:180,unit:"kg"},
+ {cat:"BIG3",group:"デッドリフト",icon:"deadlift",rarity:"bronze",name:"デッドリフト60kg",val:function(c){return c.maxW["デッドリフト"]||0;},need:60,unit:"kg"},
+ {cat:"BIG3",group:"デッドリフト",icon:"deadlift",rarity:"silver",name:"デッドリフト100kg",val:function(c){return c.maxW["デッドリフト"]||0;},need:100,unit:"kg"},
+ {cat:"BIG3",group:"デッドリフト",icon:"deadlift",rarity:"gold",name:"デッドリフト140kg",val:function(c){return c.maxW["デッドリフト"]||0;},need:140,unit:"kg"},
+ {cat:"BIG3",group:"デッドリフト",icon:"deadlift",rarity:"diamond",name:"デッドリフト180kg",val:function(c){return c.maxW["デッドリフト"]||0;},need:180,unit:"kg"},
+ {cat:"BIG3",group:"デッドリフト",icon:"deadlift",rarity:"legend",name:"デッドリフト220kg",val:function(c){return c.maxW["デッドリフト"]||0;},need:220,unit:"kg"},
+ // 総重量
+ {cat:"総重量",group:"総重量",icon:"tons",rarity:"bronze",name:"総重量1t",val:function(c){return Math.round(c.totalVol/100)/10;},need:1,unit:"t"},
+ {cat:"総重量",group:"総重量",icon:"tons",rarity:"silver",name:"総重量10t",val:function(c){return Math.round(c.totalVol/100)/10;},need:10,unit:"t"},
+ {cat:"総重量",group:"総重量",icon:"tons",rarity:"gold",name:"総重量50t",val:function(c){return Math.round(c.totalVol/100)/10;},need:50,unit:"t"},
+ {cat:"総重量",group:"総重量",icon:"tons",rarity:"diamond",name:"総重量100t",val:function(c){return Math.round(c.totalVol/100)/10;},need:100,unit:"t"},
+ {cat:"総重量",group:"総重量",icon:"tons",rarity:"legend",name:"総重量500t",val:function(c){return Math.round(c.totalVol/100)/10;},need:500,unit:"t"},
+ // 総セット数
+ {cat:"セット",group:"総セット数",icon:"sets",rarity:"bronze",name:"総セット100",val:function(c){return c.totalSets;},need:100,unit:"sets"},
+ {cat:"セット",group:"総セット数",icon:"sets",rarity:"silver",name:"総セット500",val:function(c){return c.totalSets;},need:500,unit:"sets"},
+ {cat:"セット",group:"総セット数",icon:"sets",rarity:"gold",name:"総セット1000",val:function(c){return c.totalSets;},need:1000,unit:"sets"},
+ {cat:"セット",group:"総セット数",icon:"sets",rarity:"diamond",name:"総セット5000",val:function(c){return c.totalSets;},need:5000,unit:"sets"},
+ {cat:"セット",group:"総セット数",icon:"sets",rarity:"legend",name:"総セット10000",val:function(c){return c.totalSets;},need:10000,unit:"sets"},
+ // 特別
+ {cat:"特別",group:"誕生日トレーニー",icon:"birthday",rarity:"gold",name:"誕生日トレ1年目",val:function(c){return c.birthdayCount;},need:1,unit:"count"},
+ {cat:"特別",group:"誕生日トレーニー",icon:"birthday",rarity:"diamond",name:"誕生日トレ2年目",val:function(c){return c.birthdayCount;},need:2,unit:"count"},
+ {cat:"特別",group:"誕生日トレーニー",icon:"birthday",rarity:"legend",name:"誕生日トレ3年目",val:function(c){return c.birthdayCount;},need:3,unit:"count"},
+];
+BADGES.forEach(function(b){b.id=b.name;});
+
+function badgeOk(b,ctx){return b.done?b.done(ctx):(b.val(ctx)>=b.need);}
+function badgeRemain(b,ctx){
+ if(b.done)return "未達成";
+ var left=b.need-b.val(ctx);if(left<0)left=0;
+ var u=b.unit;
+ if(u==="days")return "あと "+left+"日";
+ if(u==="kg")return "あと "+(Math.round(left*10)/10)+"kg";
+ if(u==="t")return "あと "+(Math.round(left/100)/10)+"t";
+ if(u==="reps")return "あと "+left+"回";
+ if(u==="sets")return "あと "+left+"セット";
+ if(u==="exercises")return "あと "+left+"種目";
+ if(u==="pr")return "あと "+left+"回";
+ return "あと "+left;
+}
+function trophySvg(){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v4a4 4 0 0 1-8 0zM6 5H4v1a3 3 0 0 0 3 3M18 5h2v1a3 3 0 0 1-3 3M9.5 13h5l-.5 4h-4zM8 20h8M9 20l.5-3M15 20l-.5-3"></path></svg>';}
+
+function buildBadge(){
+ var ctx=computeCtx();
+ var groupsMap={};
+ BADGES.forEach(function(b){if(b.group){(groupsMap[b.group]=groupsMap[b.group]||[]).push(b);}});
+ var groupCur={};
+ Object.keys(groupsMap).forEach(function(g){
+  var sorted=groupsMap[g].slice().sort(function(a,b){return a.need-b.need;});
+  var val=sorted[0].val(ctx),cur=null,next=null;
+  sorted.forEach(function(t){if(val>=t.need)cur=t;});
+  for(var i=0;i<sorted.length;i++){if(val<sorted[i].need){next=sorted[i];break;}}
+  groupCur[g]={sorted:sorted,val:val,cur:cur,next:next};
+ });
+ var Y=0,X=0,tally={bronze:0,silver:0,gold:0,diamond:0,legend:0};
+ BADGES.forEach(function(b){if(!b.group){Y++;if(badgeOk(b,ctx)){X++;tally[b.rarity]++;}}});
+ Object.keys(groupCur).forEach(function(g){var gc=groupCur[g];Y++;if(gc.cur){X++;tally[gc.cur.rarity]++;}});
+
+ var html='<div class="wn-view-title">実績</div><p class="wn-view-sub">解除 '+X+' / '+Y+'</p>';
+ html+='<div class="wn-rar-tally">'+["bronze","silver","gold","diamond","legend"].map(function(r){return '<span>'+RAR[r].e+' '+tally[r]+'</span>';}).join("")+'</div>';
+ html+='<div class="wn-bgrid">';
+ var rendered={};
+ BADGES.forEach(function(b){
+  if(b.group){
+   if(rendered[b.group])return; rendered[b.group]=1;
+   var gc=groupCur[b.group],ok=!!gc.cur,rar=ok?gc.cur.rarity:gc.sorted[0].rarity,pct;
+   if(!ok)pct=Math.max(0,Math.min(100,gc.val/gc.sorted[0].need*100));
+   else if(gc.next)pct=Math.max(0,Math.min(100,gc.val/gc.next.need*100));
+   else pct=100;
+   var ic='<div class="wn-bt-ci">'+iconHTML(b.icon,ok?rarC(rar):MUTEDC)+'</div>';
+   html+='<button class="wn-btile'+(ok?'':' locked')+'" data-action="badge-detail" data-group="'+esc(b.group)+'">'+ic+'<div class="wn-pbar'+(!gc.next&&ok?' done':'')+'"><div style="width:'+pct+'%"></div></div></button>';
+  }else{
+   var ok2=badgeOk(b,ctx);
+   var pct2=b.done?(ok2?100:0):Math.max(0,Math.min(100,b.val(ctx)/b.need*100));
+   var fic='<div class="wn-bt-ci">'+iconHTML(b.icon,ok2?rarC(b.rarity):MUTEDC)+'</div>';
+   html+='<button class="wn-btile'+(ok2?'':' locked')+'" data-action="badge-detail" data-id="'+esc(b.id)+'">'+fic+'<div class="wn-pbar'+(ok2?' done':'')+'"><div style="width:'+pct2+'%"></div></div></button>';
+  }
+ });
+ html+='</div>';
+ return html;
+}
+
+function fmtVal(v,u){
+ if(u==="t")return (Math.round(v/100)/10)+"t";
+ if(u==="days")return v+"日";
+ if(u==="kg")return v+"kg";
+ if(u==="sets")return v+"セット";
+ if(u==="exercises")return v+"種目";
+ return v+"回";
+}
+function fmtPair(v,need,u){
+ if(u==="t")return (Math.round(v/100)/10)+" / "+(need/1000);
+ return v+" / "+need;
+}
+function unitLabel(u){return {days:"日",kg:"kg",t:"t",reps:"回",sets:"セット",exercises:"種目",pr:"回（PR）",count:"回"}[u]||"回";}
+
+function openBadgeDetail(id,group){
+ var ctx=computeCtx(),name,iconHtml,numText,unit="",pct,extra="";
+ if(group){
+  var gm=BADGES.filter(function(b){return b.group===group;}).slice().sort(function(a,b){return a.need-b.need;});
+  var val=gm[0].val(ctx),cur=null,next=null;
+  gm.forEach(function(t){if(val>=t.need)cur=t;});
+  for(var i=0;i<gm.length;i++){if(val<gm[i].need){next=gm[i];break;}}
+  name=group;
+  var rar=cur?cur.rarity:gm[0].rarity;
+  var ul=unitLabel(gm[0].unit);
+  iconHtml='<div class="wn-bd-ci'+(cur?'':' lk')+'">'+iconHTML(gm[0].icon,cur?rarC(rar):MUTEDC)+'</div>';
+  if(next){pct=Math.max(0,Math.min(100,val/next.need*100));numText=val+" / "+next.need;unit=ul;}
+  else{pct=100;numText=String(val);unit=ul+" ・ 最高ランク";}
+  extra='<div class="wn-bd-tiers">'+gm.map(function(t){return '<span class="wn-bd-tier '+(val>=t.need?'on':'off')+'"><span class="wn-bd-tim">'+iconHTML(t.icon,(val>=t.need)?rarC(t.rarity):MUTEDC)+'</span><small>'+t.need+'</small></span>';}).join("")+'</div>';
+ }else{
+  var b=null;for(var j=0;j<BADGES.length;j++){if(BADGES[j].id===id){b=BADGES[j];break;}}
+  if(!b)return;
+  name=b.name;
+  var ok=badgeOk(b,ctx);
+  iconHtml='<div class="wn-bd-ci'+(ok?'':' lk')+'">'+iconHTML(b.icon,ok?rarC(b.rarity):MUTEDC)+'</div>';
+  if(b.done){pct=ok?100:0;numText=ok?"達成！":"未達成";unit="";}
+  else{var v=b.val(ctx);pct=Math.max(0,Math.min(100,v/b.need*100));
+   if(ok){numText="達成！";unit=fmtVal(v,b.unit);}
+   else{numText=fmtPair(v,b.need,b.unit);unit=unitLabel(b.unit);}}
+ }
+ $ov.innerHTML='<div class="wn-fs"><div class="wn-fs-head"><span class="wn-fs-title">'+esc(name)+'</span><button class="wn-x" data-action="close">×</button></div>'
+  +'<div class="wn-fs-body">'+iconHtml
+  +'<div class="wn-fs-num">'+esc(numText)+'</div>'
+  +(unit?'<div class="wn-fs-unit">'+esc(unit)+'</div>':'')
+  +'<div class="wn-pbar wn-fs-bar'+(pct>=100?' done':'')+'"><div style="width:'+pct+'%"></div></div>'
+  +extra+'</div></div>';
+}
+
+function unlockedIds(){var ctx=computeCtx();return BADGES.filter(function(b){return badgeOk(b,ctx);}).map(function(b){return b.id;});}
+var badgeSeen=null;
+var BADGE_VER=7;
+function initBadges(){
+ loadBirthday();loadQuick();loadProfile();loadFavorites();
+ var raw=null,ver=null;
+ try{raw=JSON.parse(localStorage.getItem("workout-badges-seen"));ver=localStorage.getItem("workout-badges-ver");}catch(e){}
+ if(raw&&Array.isArray(raw)&&ver===String(BADGE_VER))badgeSeen=new Set(raw);
+ else{badgeSeen=new Set(unlockedIds());saveBadges();}
+}
+function saveBadges(){try{localStorage.setItem("workout-badges-seen",JSON.stringify(Array.from(badgeSeen)));localStorage.setItem("workout-badges-ver",String(BADGE_VER));}catch(e){}}
+function checkNewBadges(){
+ var ids=unlockedIds(),newly=[];
+ ids.forEach(function(id){if(!badgeSeen.has(id)){badgeSeen.add(id);newly.push(id);}});
+ if(newly.length)saveBadges();
+ return BADGES.filter(function(b){return newly.indexOf(b.id)>=0;});
+}
+
+var pendingBadges=null;
+function showBadgeUnlock(list){
+ var names=list.map(function(b){return rarE(b.rarity)+" "+b.name;}).join("　");
+ $bonus.innerHTML='<div class="wn-scrim wn-bonus-scrim" data-action="badge-close"><div class="wn-bonus">'
+  +'<div class="wn-bonus-label">ACHIEVEMENT UNLOCKED</div>'
+  +'<div class="wn-stamp wn-stamp-badge">'+trophySvg()+'</div>'
+  +'<div class="wn-badge-utitle">実績解除！</div>'
+  +'<div class="wn-bonus-msg">'+esc(names)+'</div>'
+  +'<button class="wn-bonus-btn" data-action="badge-close">受け取る</button></div></div>';
+}
+
+/* ===== ログインボーナス ===== */
+function showBonus(total,msg){
+ $bonus.innerHTML='<div class="wn-scrim wn-bonus-scrim" data-action="bonus-close"><div class="wn-bonus"><div class="wn-bonus-label">WORKOUT LOG-IN BONUS</div>'
+  +'<div class="wn-stamp"><span class="wn-stamp-char">筋</span></div>'
+  +'<div class="wn-bonus-total"><span class="wn-bonus-total-label">累計トレ日数</span><span class="wn-bonus-total-num">'+total+'<small>日</small></span></div>'
+  +'<div class="wn-bonus-msg">'+esc(msg)+'</div><button class="wn-bonus-btn" data-action="bonus-close">受け取る</button></div></div>';
+}
+$bonus.addEventListener("click",function(e){
+ var t=e.target.closest("[data-action]"); if(!t)return;
+ var a=t.dataset.action;
+ if(a==="bonus-close"){
+  if(e.target===t||t.classList.contains("wn-bonus-btn")){
+   $bonus.innerHTML="";
+   if(pendingBadges&&pendingBadges.length){var pb=pendingBadges;pendingBadges=null;showBadgeUnlock(pb);}
+  }
+ }else if(a==="badge-close"){
+  if(e.target===t||t.classList.contains("wn-bonus-btn"))$bonus.innerHTML="";
+ }
+});
+
+/* ===== 起動 ===== */
+initBadges();
+renderMain();
+try{if(localStorage.getItem("workout-onboarded")!=="1")showOnboarding();}catch(e){}
