@@ -170,6 +170,14 @@ function svgLine(series, unit, goal){
 var $app=document.getElementById("app");
 var $ov=document.getElementById("overlay");
 var $bonus=document.getElementById("bonus");
+var $restbar=document.getElementById("restbar");
+$restbar.addEventListener("click",function(e){
+ var t=e.target.closest("[data-action]");if(!t)return;
+ var a=t.dataset.action;
+ if(a==="rest-add")restAdd(30);
+ else if(a==="rest-stop")restStop();
+ else if(a==="rest-ok"){rest.done=false;restRender();}
+});
 
 var view="home";
 function renderMain(){
@@ -280,6 +288,7 @@ $app.addEventListener("click",function(e){
  else if(a==="import-paste"){importPaste();}
  else if(a==="open-backup"){showBackup();}
  else if(a==="open-fav-editor"){showFavEditor();}
+ else if(a==="set-rest"){saveRestSec(+t.dataset.sec);renderMain();toast("休憩タイマー: "+fmtTime(restSec));}
  else if(a==="save-nick"){var ni=document.getElementById("nickInput");saveNickname(ni?ni.value:"");renderMain();toast(nickname?("ようこそ、"+nickname+"さん"):"ニックネームを削除しました");}
  else if(a==="save-goal"){var gi=document.getElementById("goalInput");saveGoalWeight(gi?gi.value.trim():"");renderMain();toast(goalWeight!=null?("目標体重 "+goalWeight+"kg を設定しました"):"目標体重を削除しました");}
  else if(a==="toggle-quick"){saveQuick(!quickOn,quickSets,quickReps);renderMain();toast(quickOn?"クイック入力：ON":"クイック入力：OFF");}
@@ -325,7 +334,7 @@ function openSheet(date){
  $ov.innerHTML=
   '<div class="wn-scrim" data-action="close-scrim"><div class="wn-sheet" data-stop="1">'
   +'<div class="wn-sheet-handle"></div>'
-  +'<div class="wn-sheet-head"><span class="wn-sheet-date">'+label+'</span><button class="wn-x" data-action="close">×</button></div>'
+  +'<div class="wn-sheet-head"><span class="wn-sheet-date">'+label+'</span><span class="wn-autosave" id="autosaveHint"></span><button class="wn-x" data-action="close">×</button></div>'
   +'<div class="wn-sheet-body" id="sheetBody"><div id="restMount"></div><div id="sheetContent"></div></div>'
   +'<div class="wn-sheet-foot"><button class="wn-next" data-action="next-field" onmousedown="event.preventDefault()">次へ ▶</button><button class="wn-save" data-action="save">保存する</button></div>'
   +'</div></div>';
@@ -377,7 +386,7 @@ function renderContent(){
   html+='<div class="wn-entries">';
   e.entries.forEach(function(s,i){
    if(s.drop){
-    html+='<div class="wn-entry wn-entry-drop"><div class="wn-entry-top"><button class="wn-drop-toggle wn-drop-on" data-action="toggle-drop" data-ex="'+e._id+'" data-idx="'+i+'">✓ ドロップセット</button><button class="wn-entry-del" data-action="remove-entry" data-ex="'+e._id+'" data-idx="'+i+'">削除</button></div>';
+    html+='<div class="wn-entry wn-entry-drop"><div class="wn-entry-top"><button class="wn-drop-toggle wn-drop-on" data-action="toggle-drop" data-ex="'+e._id+'" data-idx="'+i+'">✓ ドロップセット</button><button class="wn-rest-here" data-action="rest-here">⏱ 休憩</button><button class="wn-entry-del" data-action="remove-entry" data-ex="'+e._id+'" data-idx="'+i+'">削除</button></div>';
     html+='<div class="wn-drop-count"><span class="wn-unit">セット数</span><input class="wn-input" inputmode="numeric" placeholder="例3" value="'+esc(s.setCount||"")+'" data-field="setCount" data-ex="'+e._id+'" data-idx="'+i+'"></div>';
     (s.steps||[]).forEach(function(st,si){
      html+='<div class="wn-drop-step"><span class="wn-set-no">'+(si+1)+'</span><input class="wn-input" inputmode="decimal" placeholder="重量" value="'+esc(st.weight)+'" data-field="step-weight" data-ex="'+e._id+'" data-idx="'+i+'" data-step="'+si+'"><span class="wn-unit">kg</span><span class="wn-times">×</span><input class="wn-input" inputmode="numeric" placeholder="回" value="'+esc(st.reps)+'" data-field="step-reps" data-ex="'+e._id+'" data-idx="'+i+'" data-step="'+si+'"><span class="wn-unit">回</span></div>';
@@ -389,7 +398,7 @@ function renderContent(){
      +'<input class="wn-input" inputmode="decimal" placeholder="重量" value="'+esc(s.weight)+'" data-field="weight" data-ex="'+e._id+'" data-idx="'+i+'"><span class="wn-unit">kg</span><span class="wn-times">×</span>'
      +'<input class="wn-input" inputmode="numeric" placeholder="回" value="'+esc(s.reps)+'" data-field="reps" data-ex="'+e._id+'" data-idx="'+i+'"><span class="wn-unit">回</span><span class="wn-times">×</span>'
      +'<input class="wn-input" inputmode="numeric" placeholder="ｾｯﾄ" value="'+esc(s.sets)+'" data-field="sets" data-ex="'+e._id+'" data-idx="'+i+'"><span class="wn-unit">ｾｯﾄ</span></div>'
-     +'<div class="wn-entry-line2"><button class="wn-drop-toggle" data-action="toggle-drop" data-ex="'+e._id+'" data-idx="'+i+'">ドロップセット</button><button class="wn-entry-del" data-action="remove-entry" data-ex="'+e._id+'" data-idx="'+i+'">削除</button></div></div>';
+     +'<div class="wn-entry-line2"><button class="wn-rest-here" data-action="rest-here">⏱ 休憩</button><button class="wn-drop-toggle" data-action="toggle-drop" data-ex="'+e._id+'" data-idx="'+i+'">ドロップセット</button><button class="wn-entry-del" data-action="remove-entry" data-ex="'+e._id+'" data-idx="'+i+'">削除</button></div></div>';
    }
   });
   html+='</div><button class="wn-addset" data-action="add-entry" data-ex="'+e._id+'">＋ 記録を追加</button></div>';
@@ -442,14 +451,15 @@ $ov.addEventListener("click",function(e){
   else if(a==="cancel-add"){sheetUI.adding=false;sheetUI.pickPart=null;renderContent();}
   else if(a==="pick-part"){sheetUI.pickPart=t.dataset.part;renderContent();}
   else if(a==="back-part"){sheetUI.pickPart=null;renderContent();}
-  else if(a==="add-ex"){addExercise(t.dataset.part,t.dataset.name);}
-  else if(a==="add-custom"){addExercise(sheetUI.pickPart,sheetUI.custom);}
-  else if(a==="remove-ex"){sheet.exercises=sheet.exercises.filter(function(x){return x._id!==t.dataset.ex;});renderContent();}
-  else if(a==="add-entry"){findEx(t.dataset.ex).entries.push(newEntry());renderContent();}
-  else if(a==="remove-entry"){var ex=findEx(t.dataset.ex);ex.entries.splice(+t.dataset.idx,1);renderContent();}
-  else if(a==="toggle-drop"){toggleDrop(t.dataset.ex,+t.dataset.idx);}
+  else if(a==="add-ex"){addExercise(t.dataset.part,t.dataset.name);autoSave();}
+  else if(a==="add-custom"){addExercise(sheetUI.pickPart,sheetUI.custom);autoSave();}
+  else if(a==="remove-ex"){sheet.exercises=sheet.exercises.filter(function(x){return x._id!==t.dataset.ex;});renderContent();autoSave();}
+  else if(a==="add-entry"){findEx(t.dataset.ex).entries.push(newEntry());renderContent();autoSave();}
+  else if(a==="remove-entry"){var ex=findEx(t.dataset.ex);ex.entries.splice(+t.dataset.idx,1);renderContent();autoSave();}
+  else if(a==="toggle-drop"){toggleDrop(t.dataset.ex,+t.dataset.idx);autoSave();}
   else if(a==="sug"){applySug(t.dataset.ex,{weight:+t.dataset.w,reps:+t.dataset.r,sets:+t.dataset.s});}
   else if(a==="rest-start"){restStart(+t.dataset.sec);}
+  else if(a==="rest-here"){restStart(restSec);var sb=document.getElementById("sheetBody");if(sb)sb.scrollTop=0;}
   else if(a==="rest-add"){restAdd(30);}
   else if(a==="rest-stop"){restStop();}
   else if(a==="rest-ok"){rest.done=false;restRender();}
@@ -461,6 +471,7 @@ $ov.addEventListener("input",function(e){
  var el=e.target; var f=el.dataset&&el.dataset.field;
  if(el.id==="customName"){sheetUI.custom=el.value;return;}
  if(!f||!sheet)return;
+ autoSave();
  var ex=findEx(el.dataset.ex); if(!ex)return;
  var idx=+el.dataset.idx; var en=ex.entries[idx]; if(!en)return;
  if(f==="weight"||f==="reps"||f==="sets"){en[f]=el.value;}
@@ -511,13 +522,8 @@ $ov.addEventListener("keydown",function(e){
 });
 
 function handleSave(){
- var cleaned=sheet.exercises.map(function(e){
-  var entries=e.entries.map(function(s){
-   if(s.drop)return {drop:true,setCount:s.setCount||"",steps:(s.steps||[]).filter(function(x){return x.weight!==""&&x.reps!=="";})};
-   return s;
-  }).filter(function(s){return s.drop?s.steps.length>0:(s.weight!==""&&s.reps!==""&&s.sets!=="");});
-  return {part:e.part,name:e.name,entries:entries};
- }).filter(function(e){return e.entries.length>0;});
+ clearTimeout(autoSaveTimer);
+ var cleaned=cleanedExercises();
 
  var date=sheet.date;
  var hadWorkoutBefore=!!(records[date]&&records[date].exercises&&records[date].exercises.length>0);
@@ -543,7 +549,7 @@ function handleSave(){
  }
 }
 
-function closeOverlay(){restStop();$ov.innerHTML="";sheet=null;}
+function closeOverlay(){$ov.innerHTML="";sheet=null;restRender();}
 
 /* ===== データのバックアップ / 復元 ===== */
 function buildBackup(){return {app:"kintore-note",version:1,exportedAt:new Date().toISOString(),records:records,birthday:birthday};}
@@ -563,6 +569,10 @@ function buildSettings(){
   +'<p class="wn-data-note">記録時に★付きで先頭に表示される種目を、いつでも編集できます。</p>'
   +'<button class="wn-weight-save wn-data-block" data-action="open-fav-editor">よく使う種目を編集</button>'
   +(favCount()?'<div class="wn-weight-ok">現在 '+favCount()+' 種目を登録中</div>':'')
+  +'</div>'
+  +'<div class="wn-data-sec"><div class="wn-data-h">休憩タイマー</div>'
+  +'<p class="wn-data-note">記録画面の「⏱ 休憩」ボタンで始まる休憩時間です。</p>'
+  +'<div class="wn-ob-chips">'+[60,90,120,180].map(function(x){return '<button class="wn-ob-chip'+(restSec===x?' sel':'')+'" data-action="set-rest" data-sec="'+x+'">'+Math.floor(x/60)+'分'+(x%60?x%60+'秒':'')+'</button>';}).join("")+'</div>'
   +'</div>'
   +'<div class="wn-data-sec"><div class="wn-data-h">クイック入力（デフォルト値）</div>'
   +'<p class="wn-data-note">オンにすると、新しい入力行にセット数（と回数）が最初から入ります。例えばセット数を3にしておけば、あとは重量と回数だけ入力すれば済みます。</p>'
@@ -640,28 +650,52 @@ function applyImport(text,hintId){
 /* ===== 休憩タイマー ===== */
 var rest={total:0,remaining:0,running:false,done:false,endTs:0,interval:null,ctx:null};
 function ensureAudio(){try{if(!rest.ctx)rest.ctx=new (window.AudioContext||window.webkitAudioContext)();if(rest.ctx.state==="suspended")rest.ctx.resume();}catch(e){}}
-function beep(){var ctx=rest.ctx;if(!ctx)return;try{for(var i=0;i<3;i++){var o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.type="sine";o.frequency.value=880;var t=ctx.currentTime+i*0.28;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.25,t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+0.2);o.start(t);o.stop(t+0.22);}}catch(e){}}
-function restRender(){
- var m=document.getElementById("restMount");if(!m)return;
+function beep(){var ctx=rest.ctx;if(!ctx)return;try{for(var i=0;i<9;i++){var o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.type="sine";o.frequency.value=(i%3===2)?1175:880;var t=ctx.currentTime+i*0.30;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.85,t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+0.26);o.start(t);o.stop(t+0.28);}}catch(e){}}
+function restSave(){try{if(rest.running)localStorage.setItem("workout-rest",JSON.stringify({endTs:rest.endTs,total:rest.total}));else localStorage.removeItem("workout-rest");}catch(e){}}
+function restResume(){
+ var st=null;try{st=JSON.parse(localStorage.getItem("workout-rest"));}catch(e){}
+ if(!st||!st.endTs)return;
+ var rem=Math.ceil((st.endTs-Date.now())/1000);
+ if(rem>0){rest.total=st.total||rem;rest.remaining=rem;rest.endTs=st.endTs;rest.running=true;rest.done=false;clearInterval(rest.interval);rest.interval=setInterval(restTick,250);}
+ else if(Date.now()-st.endTs<30*60*1000){rest.running=false;rest.done=true;rest.remaining=0;try{localStorage.removeItem("workout-rest");}catch(e){}}
+ else{try{localStorage.removeItem("workout-rest");}catch(e){}}
+ restRender();
+}
+function restBarHtml(){
  if(rest.running){
   var pct=rest.total?Math.max(0,rest.remaining/rest.total*100):0;
-  m.innerHTML='<div class="wn-rest"><div class="wn-rest-bar"><div class="wn-rest-fill" id="restFill" style="width:'+pct+'%"></div></div><div class="wn-rest-row"><span class="wn-rest-time" id="restTime">'+fmtTime(rest.remaining)+'</span><div class="wn-rest-ctrl"><button class="wn-rest-btn" data-action="rest-add">+30秒</button><button class="wn-rest-btn" data-action="rest-stop">停止</button></div></div></div>';
- }else if(rest.done){
-  m.innerHTML='<div class="wn-rest wn-rest-done"><div class="wn-rest-row"><span class="wn-rest-time wn-gold">休憩おわり！</span><button class="wn-rest-btn" data-action="rest-ok">OK</button></div></div>';
- }else{
-  m.innerHTML='<div class="wn-rest"><div class="wn-rest-row"><span class="wn-rest-label">休憩タイマー</span><div class="wn-rest-presets">'
-   +[60,90,120,180].map(function(s){return '<button class="wn-rest-btn" data-action="rest-start" data-sec="'+s+'">'+fmtTime(s)+'</button>';}).join("")
+  return '<div class="wn-rest wn-rest-global"><div class="wn-rest-bar"><div class="wn-rest-fill" data-rfill style="width:'+pct+'%"></div></div><div class="wn-rest-row"><span class="wn-rest-time" data-rtime>'+fmtTime(rest.remaining)+'</span><div class="wn-rest-ctrl"><button class="wn-rest-btn" data-action="rest-add">+30秒</button><button class="wn-rest-btn" data-action="rest-stop">停止</button></div></div></div>';
+ }
+ if(rest.done){
+  return '<div class="wn-rest wn-rest-global wn-rest-done"><div class="wn-rest-row"><span class="wn-rest-time wn-gold">休憩おわり！</span><button class="wn-rest-btn" data-action="rest-ok">OK</button></div></div>';
+ }
+ return "";
+}
+function restRender(){
+ var bar=document.getElementById("restbar");
+ if(bar)bar.innerHTML=(sheet?"":restBarHtml());
+ var m=document.getElementById("restMount");
+ if(m){
+  if(rest.running||rest.done)m.innerHTML=restBarHtml();
+  else m.innerHTML='<div class="wn-rest"><div class="wn-rest-row"><span class="wn-rest-label">休憩タイマー</span><div class="wn-rest-presets">'
+   +[60,90,120,180].map(function(x){return '<button class="wn-rest-btn'+(x===restSec?' wn-rest-def':'')+'" data-action="rest-start" data-sec="'+x+'">'+fmtTime(x)+'</button>';}).join("")
    +'</div></div></div>';
  }
 }
 function restTick(){
  var rem=Math.ceil((rest.endTs-Date.now())/1000);
- if(rem<=0){rest.remaining=0;rest.running=false;rest.done=true;clearInterval(rest.interval);beep();if(navigator.vibrate)navigator.vibrate([200,100,200]);restRender();}
- else{rest.remaining=rem;var t=document.getElementById("restTime");if(t)t.textContent=fmtTime(rem);var f=document.getElementById("restFill");if(f)f.style.width=(rem/rest.total*100)+"%";}
+ if(rem<=0){rest.remaining=0;rest.running=false;rest.done=true;clearInterval(rest.interval);restSave();beep();if(navigator.vibrate)navigator.vibrate([400,150,400,150,600]);restRender();}
+ else{rest.remaining=rem;
+  var ts=document.querySelectorAll("[data-rtime]"),fs=document.querySelectorAll("[data-rfill]");
+  if(ts.length===0){restRender();return;}
+  for(var i=0;i<ts.length;i++)ts[i].textContent=fmtTime(rem);
+  for(var j=0;j<fs.length;j++)fs[j].style.width=(rem/rest.total*100)+"%";
+ }
 }
-function restStart(sec){ensureAudio();rest.total=sec;rest.remaining=sec;rest.done=false;rest.running=true;rest.endTs=Date.now()+sec*1000;clearInterval(rest.interval);rest.interval=setInterval(restTick,250);restRender();}
-function restAdd(sec){rest.endTs+=sec*1000;rest.remaining+=sec;rest.total+=sec;if(!rest.running){rest.running=true;rest.done=false;clearInterval(rest.interval);rest.interval=setInterval(restTick,250);}restRender();}
-function restStop(){rest.running=false;rest.done=false;rest.remaining=0;rest.total=0;clearInterval(rest.interval);restRender();}
+function restStart(sec){ensureAudio();rest.total=sec;rest.remaining=sec;rest.done=false;rest.running=true;rest.endTs=Date.now()+sec*1000;clearInterval(rest.interval);rest.interval=setInterval(restTick,250);restSave();restRender();}
+function restAdd(sec){rest.endTs+=sec*1000;rest.remaining+=sec;rest.total+=sec;if(!rest.running){rest.running=true;rest.done=false;clearInterval(rest.interval);rest.interval=setInterval(restTick,250);}restSave();restRender();}
+function restStop(){rest.running=false;rest.done=false;rest.remaining=0;rest.total=0;clearInterval(rest.interval);restSave();restRender();}
+document.addEventListener("visibilitychange",function(){if(!document.hidden&&(rest.running||localStorage.getItem("workout-rest")))restResume();});
 
 /* ===== 種目詳細 ===== */
 function openDetail(name){detailName=name;detailMetric="weight";renderDetail();}
@@ -767,6 +801,35 @@ function loadProfile(){try{nickname=localStorage.getItem("workout-nickname")||""
 function saveNickname(v){nickname=(v||"").trim();try{if(nickname)localStorage.setItem("workout-nickname",nickname);else localStorage.removeItem("workout-nickname");}catch(e){}}
 function saveGoalWeight(v){if(v===""||v==null){goalWeight=null;try{localStorage.removeItem("workout-goal-weight");}catch(e){}}else{goalWeight=num(v);try{localStorage.setItem("workout-goal-weight",String(goalWeight));}catch(e){}}}
 function greetWord(){var h=new Date().getHours();return h<5?"こんばんは":h<11?"おはよう":h<18?"こんにちは":"こんばんは";}
+var restSec=90;
+function loadRestSec(){try{var v=parseInt(localStorage.getItem("workout-rest-sec"),10);if(v>=10&&v<=600)restSec=v;}catch(e){}}
+function saveRestSec(v){restSec=v;try{localStorage.setItem("workout-rest-sec",String(v));}catch(e){}}
+/* ===== 自動保存 ===== */
+var autoSaveTimer=null;
+function cleanedExercises(){
+ return sheet.exercises.map(function(e){
+  var entries=e.entries.map(function(s){
+   if(s.drop)return {drop:true,setCount:s.setCount||"",steps:(s.steps||[]).filter(function(x){return x.weight!==""&&x.reps!=="";})};
+   return s;
+  }).filter(function(s){return s.drop?s.steps.length>0:(s.weight!==""&&s.reps!==""&&s.sets!=="");});
+  return {part:e.part,name:e.name,entries:entries};
+ }).filter(function(e){return e.entries.length>0;});
+}
+function autoSave(){
+ if(!sheet)return;
+ clearTimeout(autoSaveTimer);
+ autoSaveTimer=setTimeout(function(){
+  if(!sheet)return;
+  var cleaned=cleanedExercises();
+  var date=sheet.date;
+  var o=records[date]||{};
+  if(cleaned.length===0){delete o.exercises;if(o.weight===undefined||o.weight===""){if(records[date])delete records[date];}else records[date]=o;}
+  else{o.exercises=cleaned;if(!o.savedAt)o.savedAt=new Date().toISOString();records[date]=o;}
+  save();
+  var h=document.getElementById("autosaveHint");
+  if(h){h.textContent="✓ 自動保存";h.style.opacity="1";setTimeout(function(){h.style.opacity="0";},1200);}
+ },600);
+}
 function markBackedUp(){try{localStorage.setItem("workout-last-backup",new Date().toISOString());}catch(e){}}
 function backupAgeDays(){var t=null;try{t=localStorage.getItem("workout-last-backup");}catch(e){}if(!t)return null;var ms=Date.now()-new Date(t).getTime();return Math.floor(ms/86400000);}
 function backupReminderHtml(){
@@ -1114,7 +1177,7 @@ function unlockedIds(){var ctx=computeCtx();return BADGES.filter(function(b){ret
 var badgeSeen=null;
 var BADGE_VER=7;
 function initBadges(){
- loadBirthday();loadQuick();loadProfile();loadFavorites();
+ loadBirthday();loadQuick();loadProfile();loadFavorites();loadRestSec();
  var raw=null,ver=null;
  try{raw=JSON.parse(localStorage.getItem("workout-badges-seen"));ver=localStorage.getItem("workout-badges-ver");}catch(e){}
  if(raw&&Array.isArray(raw)&&ver===String(BADGE_VER))badgeSeen=new Set(raw);
@@ -1162,4 +1225,5 @@ $bonus.addEventListener("click",function(e){
 /* ===== 起動 ===== */
 initBadges();
 renderMain();
+restResume();
 try{if(localStorage.getItem("workout-onboarded")!=="1")showOnboarding();}catch(e){}

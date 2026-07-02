@@ -30,6 +30,12 @@ button{cursor:pointer;}
 .wn-chart-goal-l{fill:var(--gold);font-size:11px;font-family:'Oswald';opacity:.95;}
 .wn-greet{font-size:15px;color:var(--text);margin:2px 2px 14px;font-weight:600;}
 .wn-greet b{color:var(--gold);}
+.wn-rest-here{background:rgba(45,212,191,.1);border:1px solid rgba(45,212,191,.5);color:#2DD4BF;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;}
+.wn-rest-here:active{transform:scale(.95);}
+.wn-autosave{color:var(--muted);font-size:11px;margin-left:auto;margin-right:10px;opacity:0;transition:opacity .3s;}
+.wn-rest-def{border-color:var(--gold);color:var(--gold);}
+#restbar{position:fixed;left:50%;transform:translateX(-50%);width:calc(100% - 24px);max-width:536px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:38;}
+#restbar .wn-rest-global{margin:0;box-shadow:0 6px 22px rgba(0,0,0,.45);}
 .wn-bk-remind{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;box-sizing:border-box;background:rgba(255,194,75,.08);border:1px solid rgba(255,194,75,.45);color:var(--gold);border-radius:12px;padding:11px 14px;font-size:12.5px;margin:0 0 14px;text-align:left;}
 .wn-bk-remind-go{white-space:nowrap;font-weight:700;}
 .wn-bk-remind:active{transform:scale(.985);}
